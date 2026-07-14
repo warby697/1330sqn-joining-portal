@@ -4,11 +4,9 @@ import Gate from './components/Gate'
 import AdminSettings from './components/AdminSettings'
 import ProgressBar from './components/ProgressBar'
 import StepScreen, { stepIsComplete, stepBlockedReason } from './components/StepScreen'
-import SummaryPreview from './components/SummaryPreview'
-import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep } from './components/PortalSteps'
+import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, DoneStep } from './components/PortalSteps'
 import { steps3822A } from './lib/steps3822A'
 import { steps3822H } from './lib/steps3822H'
-import { getAdminEmails } from './lib/adminEmails'
 import { buildReference } from './lib/reference'
 
 const SESSION_KEY = 'joining-portal:session'
@@ -151,78 +149,49 @@ export default function App() {
           </>
         )}
 
-        {stage === 'fee' && <FeeStep formData={formData} onSkip={() => setStage('subs')} />}
+        {stage === 'fee' && (
+          <FeeStep
+            formData={formData}
+            onBack={() => setStage('wizard')}
+            onSkip={() => {
+              update({ 'payment.feeStatus': 'unconfirmed' })
+              setStage('subs')
+            }}
+          />
+        )}
         {stage === 'fee-confirming' && (
           <FeeConfirmStep
             billingRequestId={pendingBillingRequestId}
-            onDone={() => setStage('subs')}
+            onDone={() => {
+              update({ 'payment.feeStatus': 'paid' })
+              setStage('subs')
+            }}
             onRetry={() => setStage('fee')}
           />
         )}
-        {stage === 'subs' && <SubsStep formData={formData} onSkip={() => setStage('done')} />}
+        {stage === 'subs' && (
+          <SubsStep
+            formData={formData}
+            onBack={() => setStage('fee')}
+            onSkip={() => {
+              update({ 'payment.subsStatus': 'unconfirmed' })
+              setStage('done')
+            }}
+          />
+        )}
         {stage === 'subs-confirming' && (
           <SubsConfirmStep
             billingRequestId={pendingBillingRequestId}
             reference={buildReference(formData)}
-            onDone={() => setStage('done')}
+            onDone={() => {
+              update({ 'payment.subsStatus': 'active' })
+              setStage('done')
+            }}
             onRetry={() => setStage('subs')}
           />
         )}
 
-        {stage === 'done' && (
-          <div>
-            <div className="rounded-2xl bg-[var(--green-soft)] border border-[var(--green)]/30 px-6 py-5 mb-6 text-center">
-              <p className="text-lg font-semibold text-[var(--green)] mb-1">All done — welcome to 1330 Squadron</p>
-              <p className="text-sm text-slate-600 mb-3">
-                Nothing is stored in this portal — it's cleared automatically.
-              </p>
-              <div className="text-sm text-slate-700 space-y-1">
-                <p>
-                  Sent to: <strong>{getAdminEmails().join(', ')}</strong>
-                </p>
-                {formData['parent1.primaryEmail'] && (
-                  <p>
-                    A copy has also been emailed to <strong>{formData['parent1.primaryEmail']}</strong> — keep it in
-                    case you need it, or in case the squadron asks for it again.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Next steps</p>
-
-            <div className="mb-5">
-              <p className="text-sm font-semibold text-slate-800 mb-2">1. Review what you've submitted</p>
-              <SummaryPreview formData={formData} />
-            </div>
-
-            <div className="rounded-2xl bg-[var(--navy)] text-white p-6">
-              <p className="text-sm font-semibold mb-2">2. Continue to the Parent Portal</p>
-              <p className="text-sm text-white/80 mb-4">
-                That's where you'll find the Signal group link, event notices, uniform ordering, and everything else
-                going forward — not email. Log in with the same PIN you used to start today
-                {formData['meta.pin'] ? (
-                  <>
-                    {' '}
-                    (<strong>{formData['meta.pin']}</strong>)
-                  </>
-                ) : null}
-                .
-              </p>
-              <a
-                href="#"
-                onClick={(e) => e.preventDefault()}
-                className="inline-block rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-[var(--navy)] hover:brightness-95"
-              >
-                Open the Parent Portal
-              </a>
-              <p className="mt-3 text-xs text-white/60">
-                Demo only — the Parent Portal isn't built yet. When it is, staff rotating this PIN for new sign-ups
-                will rotate the same PIN for parent access at the same time — one change, both apps.
-              </p>
-            </div>
-          </div>
-        )}
+        {stage === 'done' && <DoneStep formData={formData} />}
       </main>
     </div>
   )

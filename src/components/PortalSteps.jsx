@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { buildReference } from '../lib/reference'
+import { getAdminEmails } from '../lib/adminEmails'
+import SummaryPreview from './SummaryPreview'
 
 function Card({ children }) {
   return <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">{children}</div>
@@ -9,7 +11,7 @@ function Eyebrow({ children }) {
   return <p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)] mb-2">{children}</p>
 }
 
-export function FeeStep({ formData, onSkip }) {
+export function FeeStep({ formData, onSkip, onBack }) {
   const ref = buildReference(formData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -51,13 +53,21 @@ export function FeeStep({ formData, onSkip }) {
         Reference: <strong>{ref}</strong>
       </div>
       {error && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</p>}
-      <button
-        onClick={startPayment}
-        disabled={loading}
-        className="inline-block rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
-      >
-        {loading ? 'One moment…' : 'Pay £30.00 via GoCardless'}
-      </button>
+      <div className="flex gap-3">
+        <button
+          onClick={onBack}
+          className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          Back
+        </button>
+        <button
+          onClick={startPayment}
+          disabled={loading}
+          className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
+        >
+          {loading ? 'One moment…' : 'Pay £30.00 via GoCardless'}
+        </button>
+      </div>
       {error && (
         <div className="mt-5 pt-5 border-t border-slate-200">
           <label className="flex items-start gap-2 text-sm text-slate-600 mb-3">
@@ -163,7 +173,7 @@ export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
   )
 }
 
-export function SubsStep({ formData, onSkip }) {
+export function SubsStep({ formData, onSkip, onBack }) {
   const ref = buildReference(formData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -205,13 +215,21 @@ export function SubsStep({ formData, onSkip }) {
         Mandate reference: <strong>{ref}</strong>
       </div>
       {error && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</p>}
-      <button
-        onClick={startMandate}
-        disabled={loading}
-        className="inline-block rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
-      >
-        {loading ? 'One moment…' : 'Set up Direct Debit via GoCardless'}
-      </button>
+      <div className="flex gap-3">
+        <button
+          onClick={onBack}
+          className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+        >
+          Back
+        </button>
+        <button
+          onClick={startMandate}
+          disabled={loading}
+          className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
+        >
+          {loading ? 'One moment…' : 'Set up Direct Debit via GoCardless'}
+        </button>
+      </div>
       {error && (
         <div className="mt-5 pt-5 border-t border-slate-200">
           <label className="flex items-start gap-2 text-sm text-slate-600 mb-3">
@@ -311,5 +329,97 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }
       <h2 className="text-lg font-semibold text-slate-900 mb-2">Confirming your Direct Debit…</h2>
       <p className="text-sm text-slate-600">Just a moment while we finish setting up your monthly subs.</p>
     </Card>
+  )
+}
+
+export function DoneStep({ formData }) {
+  const [emailStatus, setEmailStatus] = useState('sending')
+  const [emailError, setEmailError] = useState(null)
+
+  const sendEmail = () => {
+    setEmailStatus('sending')
+    setEmailError(null)
+    fetch('/api/send-joining-form', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ formData, recipients: getAdminEmails() }),
+    })
+      .then(async (res) => {
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Could not send the confirmation email')
+        setEmailStatus('sent')
+      })
+      .catch((e) => {
+        setEmailError(e.message)
+        setEmailStatus('error')
+      })
+  }
+
+  useEffect(() => {
+    sendEmail()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div>
+      <div className="rounded-2xl bg-[var(--green-soft)] border border-[var(--green)]/30 px-6 py-5 mb-6 text-center">
+        <p className="text-lg font-semibold text-[var(--green)] mb-1">All done — welcome to 1330 Squadron</p>
+        <p className="text-sm text-slate-600 mb-3">Nothing is stored in this portal — it's cleared automatically.</p>
+        <div className="text-sm text-slate-700 space-y-2">
+          {formData['parent1.primaryEmail'] && (
+            <p>
+              You'll get a copy emailed to <strong>{formData['parent1.primaryEmail']}</strong> — keep it in case you
+              need it, or in case the squadron asks for it again.
+            </p>
+          )}
+          {emailStatus === 'sending' && <p className="text-slate-500">Sending your confirmation…</p>}
+          {emailStatus === 'sent' && <p className="font-medium text-[var(--green)]">Confirmation sent.</p>}
+          {emailStatus === 'error' && (
+            <div className="rounded-lg bg-red-50 px-3 py-2 text-left text-red-700">
+              <p>Couldn't send the confirmation email: {emailError}</p>
+              <button
+                onClick={sendEmail}
+                className="mt-2 rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+              >
+                Try again
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Next steps</p>
+
+      <div className="mb-5">
+        <p className="text-sm font-semibold text-slate-800 mb-2">1. Review what you've submitted</p>
+        <SummaryPreview formData={formData} />
+      </div>
+
+      <div className="rounded-2xl bg-[var(--navy)] text-white p-6">
+        <p className="text-sm font-semibold mb-2">2. Continue to the Parent Portal</p>
+        <p className="text-sm text-white/80 mb-4">
+          That's where you'll find the Signal group link, event notices, uniform ordering, and everything else going
+          forward — not email. Log in with the same PIN you used to start today
+          {formData['meta.pin'] ? (
+            <>
+              {' '}
+              (<strong>{formData['meta.pin']}</strong>)
+            </>
+          ) : null}
+          .
+        </p>
+        <a
+          href="#"
+          onClick={(e) => e.preventDefault()}
+          className="inline-block rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-[var(--navy)] hover:brightness-95"
+        >
+          Open the Parent Portal
+        </a>
+        <p className="mt-3 text-xs text-white/60">
+          Demo only — the Parent Portal isn't built yet. When it is, staff rotating this PIN for new sign-ups will
+          rotate the same PIN for parent access at the same time — one change, both apps.
+        </p>
+      </div>
+    </div>
   )
 }

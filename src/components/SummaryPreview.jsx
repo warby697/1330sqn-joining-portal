@@ -36,6 +36,28 @@ function Row({ k, v }) {
   )
 }
 
+const PAYMENT_STATUS_LABELS = {
+  paid: { label: 'Paid', className: 'bg-[var(--green-soft)] text-[var(--green)]' },
+  active: { label: 'Active', className: 'bg-[var(--green-soft)] text-[var(--green)]' },
+  unconfirmed: { label: 'Not confirmed — check GoCardless', className: 'bg-[var(--gold-soft)] text-[var(--amber)]' },
+}
+
+function PaymentRow({ k, status }) {
+  const info = PAYMENT_STATUS_LABELS[status]
+  return (
+    <div className="flex justify-between gap-3 py-1.5 border-b border-dotted border-slate-200 text-sm">
+      <span className="text-slate-500">{k}</span>
+      {info ? (
+        <span className={'inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ' + info.className}>
+          {info.label}
+        </span>
+      ) : (
+        <span className="font-semibold text-right text-slate-400">—</span>
+      )}
+    </div>
+  )
+}
+
 export default function SummaryPreview({ formData }) {
   const ref = buildReference(formData)
   const genderLabel = GENDER_OPTIONS.find((g) => g.value === formData['cadet.gender'])?.label
@@ -104,6 +126,12 @@ export default function SummaryPreview({ formData }) {
               }
             />
           </div>
+        </div>
+
+        <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--blue)] mb-2">Payment</p>
+        <div className="mb-5">
+          <PaymentRow k="Joining fee (£30.00)" status={formData['payment.feeStatus']} />
+          <PaymentRow k="Monthly subs (£18.50/month)" status={formData['payment.subsStatus']} />
         </div>
 
         <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--blue)] mb-2">Consents given</p>
