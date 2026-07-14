@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #122647;
+  --navy-soft: #EAF0F5;
+  --blue: #2F6FAD;
+  --green: #3F8B5C;
+  --green-soft: #EAF3EC;
+  --gold: #C9A227;
+  --gold-soft: #FBF3DD;
+  --amber: #A9702D;
+}
+
+body {
+  margin: 0;
+  background: #F1F5F9;
+}
+
+/* iOS Safari auto-zooms the page when a focused field renders below 16px */
+@media (max-width: 767px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}

@@ -1,0 +1,12 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[dev]
+  command = "npm run dev -- --port 5173 --strictPort"
+  targetPort = 5173
+  port = 5181
+  publish = "dist"
+  functions = "netlify/functions"
+  autoLaunch = false
