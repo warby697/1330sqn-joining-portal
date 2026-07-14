@@ -12,6 +12,15 @@ const GREY = rgb(0.5, 0.5, 0.5)
 const HEADER_BG = rgb(0.93, 0.94, 0.96)
 
 const PAYMENT_LABELS = { paid: 'Paid', active: 'Active', unconfirmed: 'NOT CONFIRMED — check GoCardless' }
+const SENDER_DISPLAY_NAME = '1330 Squadron RAF Air Cadets'
+
+// Parents shouldn't see (or reply to) the raw sending address - just a friendly name. Works
+// whether RESEND_FROM is a bare address or already "Name <address>" formatted.
+function formatFrom(raw) {
+  const match = raw.match(/<(.+)>/)
+  const email = (match ? match[1] : raw).trim()
+  return `${SENDER_DISPLAY_NAME} <${email}>`
+}
 
 async function buildFormPdf(formData, reference) {
   const doc = await PDFDocument.create()
@@ -175,7 +184,7 @@ export default async (req) => {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from,
+      from: formatFrom(from),
       to: recipients,
       ...(parentEmail ? { cc: [parentEmail] } : {}),
       subject,
