@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { buildReference } from '../lib/reference'
 import { getAdminEmails } from '../lib/adminEmails'
+import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 import SummaryPreview from './SummaryPreview'
 
 function Card({ children }) {
@@ -44,7 +45,7 @@ export function FeeStep({ formData, onSkip, onBack }) {
   return (
     <Card>
       <Eyebrow>One-off payment</Eyebrow>
-      <h2 className="text-lg font-semibold text-slate-900 mb-2">Joining fee — £30.00</h2>
+      <h2 className="text-lg font-semibold text-slate-900 mb-2">Joining fee — {FEE_LABEL}</h2>
       <p className="text-sm text-slate-600 mb-4">
         Covers the cadet's initial kit issue and Cadet Portal setup. Paid instantly straight from your bank via
         GoCardless — no card details needed.
@@ -65,7 +66,7 @@ export function FeeStep({ formData, onSkip, onBack }) {
           disabled={loading}
           className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
         >
-          {loading ? 'One moment…' : 'Pay £30.00 via GoCardless'}
+          {loading ? 'One moment…' : `Pay ${FEE_LABEL} via GoCardless`}
         </button>
       </div>
       {error && (
@@ -206,7 +207,7 @@ export function SubsStep({ formData, onSkip, onBack }) {
   return (
     <Card>
       <Eyebrow>Ongoing subs</Eyebrow>
-      <h2 className="text-lg font-semibold text-slate-900 mb-2">Set up monthly subs — £18.50/month</h2>
+      <h2 className="text-lg font-semibold text-slate-900 mb-2">Set up monthly subs — {SUBS_LABEL}</h2>
       <p className="text-sm text-slate-600 mb-4">
         Collected by Direct Debit via GoCardless — the same reference follows through so subs and this form stay
         linked in our records. You'll be taken to GoCardless's own secure page to enter your bank details.

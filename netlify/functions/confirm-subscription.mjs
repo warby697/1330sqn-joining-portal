@@ -1,6 +1,7 @@
+import { SUBS_AMOUNT_PENCE } from '../../src/lib/pricing.js'
+
 const GC_API = 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
-const SUBS_AMOUNT_PENCE = 1850
 
 function gcHeaders(idempotencyKey) {
   return {

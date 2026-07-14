@@ -1,5 +1,6 @@
 import { buildReference } from '../lib/reference'
 import { CONDITION_OPTIONS, ALLERGY_OPTIONS, GENDER_OPTIONS, PRONOUN_OPTIONS } from '../lib/options'
+import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 
 const dash = (v) => (v === undefined || v === null || v === '' ? '—' : v)
 const yn = (v) => (v === undefined ? undefined : v ? 'yes' : 'no')
@@ -130,8 +131,8 @@ export default function SummaryPreview({ formData }) {
 
         <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--blue)] mb-2">Payment</p>
         <div className="mb-5">
-          <PaymentRow k="Joining fee (£30.00)" status={formData['payment.feeStatus']} />
-          <PaymentRow k="Monthly subs (£18.50/month)" status={formData['payment.subsStatus']} />
+          <PaymentRow k={`Joining fee (${FEE_LABEL})`} status={formData['payment.feeStatus']} />
+          <PaymentRow k={`Monthly subs (${SUBS_LABEL})`} status={formData['payment.subsStatus']} />
         </div>
 
         <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--blue)] mb-2">Consents given</p>
