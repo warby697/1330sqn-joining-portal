@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 const GC_API = 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
 
@@ -42,17 +44,24 @@ export default async (req) => {
     }),
   })
   const br = await brRes.json()
-  if (!brRes.ok) {
+  const conflict = br.error?.errors?.find((e) => e.reason === 'idempotent_creation_conflict')
+  let billingRequestId
+  if (brRes.ok) {
+    billingRequestId = br.billing_requests.id
+  } else if (conflict?.links?.conflicting_resource_id) {
+    // Same person retrying the same day's mandate (e.g. they backed out and clicked again) —
+    // reuse the existing billing request rather than erroring, and get them a fresh hosted flow below.
+    billingRequestId = conflict.links.conflicting_resource_id
+  } else {
     return new Response(JSON.stringify({ error: br.error?.message || 'Failed to create billing request' }), {
       status: brRes.status,
       headers: { 'Content-Type': 'application/json' },
     })
   }
-  const billingRequestId = br.billing_requests.id
 
   const flowRes = await fetch(`${GC_API}/billing_request_flows`, {
     method: 'POST',
-    headers: gcHeaders(`brf-${reference}`),
+    headers: gcHeaders(`brf-${billingRequestId}-${randomUUID()}`),
     body: JSON.stringify({
       billing_request_flows: {
         redirect_uri: returnUrl,
