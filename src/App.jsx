@@ -151,7 +151,7 @@ export default function App() {
           </>
         )}
 
-        {stage === 'fee' && <FeeStep formData={formData} />}
+        {stage === 'fee' && <FeeStep formData={formData} onSkip={() => setStage('subs')} />}
         {stage === 'fee-confirming' && (
           <FeeConfirmStep
             billingRequestId={pendingBillingRequestId}
@@ -159,7 +159,7 @@ export default function App() {
             onRetry={() => setStage('fee')}
           />
         )}
-        {stage === 'subs' && <SubsStep formData={formData} />}
+        {stage === 'subs' && <SubsStep formData={formData} onSkip={() => setStage('done')} />}
         {stage === 'subs-confirming' && (
           <SubsConfirmStep
             billingRequestId={pendingBillingRequestId}

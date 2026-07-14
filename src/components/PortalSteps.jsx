@@ -9,10 +9,11 @@ function Eyebrow({ children }) {
   return <p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)] mb-2">{children}</p>
 }
 
-export function FeeStep({ formData }) {
+export function FeeStep({ formData, onSkip }) {
   const ref = buildReference(formData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [ack, setAck] = useState(false)
 
   const startPayment = async () => {
     setLoading(true)
@@ -57,6 +58,26 @@ export function FeeStep({ formData }) {
       >
         {loading ? 'One moment…' : 'Pay £30.00 via GoCardless'}
       </button>
+      {error && (
+        <div className="mt-5 pt-5 border-t border-slate-200">
+          <label className="flex items-start gap-2 text-sm text-slate-600 mb-3">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+              className="mt-0.5"
+            />
+            I've already paid, or I'll sort this with the squadron directly — let me continue anyway.
+          </label>
+          <button
+            onClick={onSkip}
+            disabled={!ack}
+            className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          >
+            Continue anyway
+          </button>
+        </div>
+      )}
     </Card>
   )
 }
@@ -142,10 +163,11 @@ export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
   )
 }
 
-export function SubsStep({ formData }) {
+export function SubsStep({ formData, onSkip }) {
   const ref = buildReference(formData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [ack, setAck] = useState(false)
 
   const startMandate = async () => {
     setLoading(true)
@@ -190,6 +212,26 @@ export function SubsStep({ formData }) {
       >
         {loading ? 'One moment…' : 'Set up Direct Debit via GoCardless'}
       </button>
+      {error && (
+        <div className="mt-5 pt-5 border-t border-slate-200">
+          <label className="flex items-start gap-2 text-sm text-slate-600 mb-3">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+              className="mt-0.5"
+            />
+            I've already set this up, or I'll sort this with the squadron directly — let me continue anyway.
+          </label>
+          <button
+            onClick={onSkip}
+            disabled={!ack}
+            className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          >
+            Continue anyway
+          </button>
+        </div>
+      )}
     </Card>
   )
 }
