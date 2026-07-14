@@ -61,24 +61,39 @@ export function FeeStep({ formData }) {
   )
 }
 
+const CONFIRM_MAX_ATTEMPTS = 4
+const CONFIRM_RETRY_DELAY_MS = 2500
+
 export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
   const [error, setError] = useState(null)
+  const [ack, setAck] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/gocardless/confirm-fee-payment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ billingRequestId }),
-    })
-      .then(async (res) => {
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.message || data.error || 'Could not confirm the payment yet')
-        if (!cancelled) onDone()
+    let attempt = 0
+
+    const tryConfirm = () => {
+      attempt += 1
+      fetch('/api/gocardless/confirm-fee-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingRequestId }),
       })
-      .catch((e) => {
-        if (!cancelled) setError(e.message)
-      })
+        .then(async (res) => {
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.message || data.error || 'Could not confirm the payment yet')
+          if (!cancelled) onDone()
+        })
+        .catch((e) => {
+          if (cancelled) return
+          if (attempt < CONFIRM_MAX_ATTEMPTS) {
+            setTimeout(tryConfirm, CONFIRM_RETRY_DELAY_MS)
+          } else {
+            setError(e.message)
+          }
+        })
+    }
+    tryConfirm()
     return () => {
       cancelled = true
     }
@@ -96,6 +111,24 @@ export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
         >
           Back to payment
         </button>
+        <div className="mt-5 pt-5 border-t border-slate-200">
+          <label className="flex items-start gap-2 text-sm text-slate-600 mb-3">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+              className="mt-0.5"
+            />
+            I've already completed this payment at my bank — I don't need to pay again.
+          </label>
+          <button
+            onClick={onDone}
+            disabled={!ack}
+            className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          >
+            Continue anyway
+          </button>
+        </div>
       </Card>
     )
   }
@@ -163,26 +196,38 @@ export function SubsStep({ formData }) {
 
 export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }) {
   const [error, setError] = useState(null)
+  const [ack, setAck] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/gocardless/confirm-subscription', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ billingRequestId, reference }),
-    })
-      .then(async (res) => {
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.message || data.error || 'Could not confirm the Direct Debit yet')
-        if (!cancelled) onDone()
+    let attempt = 0
+
+    const tryConfirm = () => {
+      attempt += 1
+      fetch('/api/gocardless/confirm-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ billingRequestId, reference }),
       })
-      .catch((e) => {
-        if (!cancelled) setError(e.message)
-      })
+        .then(async (res) => {
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.message || data.error || 'Could not confirm the Direct Debit yet')
+          if (!cancelled) onDone()
+        })
+        .catch((e) => {
+          if (cancelled) return
+          if (attempt < CONFIRM_MAX_ATTEMPTS) {
+            setTimeout(tryConfirm, CONFIRM_RETRY_DELAY_MS)
+          } else {
+            setError(e.message)
+          }
+        })
+    }
+    tryConfirm()
     return () => {
       cancelled = true
     }
-  }, [billingRequestId])
+  }, [billingRequestId, reference])
 
   if (error) {
     return (
@@ -196,6 +241,24 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }
         >
           Back to Direct Debit setup
         </button>
+        <div className="mt-5 pt-5 border-t border-slate-200">
+          <label className="flex items-start gap-2 text-sm text-slate-600 mb-3">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+              className="mt-0.5"
+            />
+            I've already set this up at my bank — I don't need to do it again.
+          </label>
+          <button
+            onClick={onDone}
+            disabled={!ack}
+            className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+          >
+            Continue anyway
+          </button>
+        </div>
       </Card>
     )
   }
