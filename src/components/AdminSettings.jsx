@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { getAdminEmails, setAdminEmails } from '../lib/adminEmails'
-
-const STAFF_PIN = '1918'
+import { getPin, setPin as saveSharedPin } from '../lib/pin'
 
 function PinGate({ onUnlock }) {
   const [pin, setPin] = useState('')
@@ -9,8 +8,8 @@ function PinGate({ onUnlock }) {
 
   const submit = (e) => {
     e.preventDefault()
-    if (pin !== STAFF_PIN) {
-      setError('Incorrect PIN.')
+    if (pin !== getPin()) {
+      setError('Incorrect code.')
       return
     }
     onUnlock()
@@ -20,7 +19,7 @@ function PinGate({ onUnlock }) {
     <div className="min-h-screen bg-slate-100 flex items-start justify-center pt-24 px-5">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white shadow-lg shadow-black/5 border border-slate-200 p-6">
         <h2 className="text-base font-semibold text-slate-900 mb-1">Staff zone</h2>
-        <p className="text-sm text-slate-500 mb-4">Enter the staff PIN to manage joining portal settings.</p>
+        <p className="text-sm text-slate-500 mb-4">Enter the staff code to manage joining portal settings.</p>
         <input
           autoFocus
           inputMode="numeric"
@@ -51,6 +50,9 @@ export default function AdminSettings() {
   const [unlocked, setUnlocked] = useState(false)
   const [emails, setEmails] = useState(getAdminEmails())
   const [saved, setSaved] = useState(false)
+  const [pin, setPinField] = useState(getPin())
+  const [pinError, setPinError] = useState('')
+  const [pinSaved, setPinSaved] = useState(false)
 
   if (!unlocked) return <PinGate onUnlock={() => setUnlocked(true)} />
 
@@ -70,6 +72,17 @@ export default function AdminSettings() {
     setSaved(true)
   }
 
+  const savePin = () => {
+    if (!/^\d{4}$/.test(pin)) {
+      setPinError('Code must be exactly 4 digits.')
+      setPinSaved(false)
+      return
+    }
+    saveSharedPin(pin)
+    setPinError('')
+    setPinSaved(true)
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="bg-[var(--navy)] text-white px-5 py-4">
@@ -77,6 +90,35 @@ export default function AdminSettings() {
         <p className="text-xs text-white/70">Not part of the parent-facing flow</p>
       </header>
       <main className="mx-auto max-w-lg px-5 py-6">
+        <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 mb-6">
+          <h2 className="text-base font-semibold text-slate-900 mb-1">Access code</h2>
+          <p className="text-sm text-slate-500 mb-5">
+            This one code gates both the sign-in screen for parents and this staff admin panel. Changing it here
+            updates both immediately — no code change or redeploy needed.
+          </p>
+          <div className="flex items-center gap-3 mb-3">
+            <input
+              inputMode="numeric"
+              maxLength={4}
+              className="w-28 rounded-lg border border-slate-300 px-3 py-2.5 text-[15px] tracking-[0.3em] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20"
+              value={pin}
+              onChange={(e) => {
+                setPinField(e.target.value.replace(/\D/g, ''))
+                setPinSaved(false)
+                setPinError('')
+              }}
+            />
+            <button
+              onClick={savePin}
+              className="rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110"
+            >
+              Save
+            </button>
+            {pinSaved && <span className="text-sm text-[var(--green)] font-medium">Saved — new code is {pin}</span>}
+          </div>
+          {pinError && <p className="text-sm text-[var(--amber)]">{pinError}</p>}
+        </div>
+
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
           <h2 className="text-base font-semibold text-slate-900 mb-1">Where completed forms get sent</h2>
           <p className="text-sm text-slate-500 mb-5">
@@ -120,8 +162,7 @@ export default function AdminSettings() {
           </div>
 
           <p className="mt-6 rounded-lg bg-[var(--gold-soft)] px-3 py-2 text-xs text-[var(--amber)]">
-            Demo only — stored in this browser's local storage. The real build should use proper staff logins here
-            rather than one shared PIN.
+            Stored in this browser's local storage — settings won't follow you to a different device or browser.
           </p>
         </div>
 

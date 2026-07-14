@@ -31,7 +31,6 @@ export default function App() {
   const [formData, setFormData] = useState(initialSession?.formData || {})
   const [pendingBillingRequestId, setPendingBillingRequestId] = useState(null)
   const [blocked, setBlocked] = useState(null)
-  const [skipValidation, setSkipValidation] = useState(true)
 
   // Coming back from a GoCardless hosted flow (fee payment or subs mandate) — the whole page
   // reloads, so session state above is restored from sessionStorage; which flow we were on
@@ -75,22 +74,20 @@ export default function App() {
 
   const step = steps[wizardIndex]
 
-  const handleEnter = (surname, pin) => {
-    setFormData((f) => ({ ...f, 'signature.surname': surname, 'meta.pin': pin }))
+  const handleEnter = (forename, surname, pin) => {
+    setFormData((f) => ({ ...f, 'cadet.fullName': `${forename} ${surname}`.trim(), 'meta.pin': pin }))
     setStage('wizard')
   }
 
   const goNext = () => {
-    if (!skipValidation) {
-      const reason = stepBlockedReason(step, formData)
-      if (reason) {
-        setBlocked(reason)
-        return
-      }
-      if (!stepIsComplete(step, formData)) {
-        setBlocked('Please fill in the required fields (marked *) before continuing.')
-        return
-      }
+    const reason = stepBlockedReason(step, formData)
+    if (reason) {
+      setBlocked(reason)
+      return
+    }
+    if (!stepIsComplete(step, formData)) {
+      setBlocked('Please fill in the required fields (marked *) before continuing.')
+      return
     }
     if (wizardIndex < steps.length - 1) {
       setWizardIndex((i) => i + 1)
@@ -119,11 +116,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
-      <Header
-        subtitle={headerSubtitle}
-        skipValidation={skipValidation}
-        onToggleSkip={() => setSkipValidation((v) => !v)}
-      />
+      <Header subtitle={headerSubtitle} />
       <main className="mx-auto max-w-2xl px-5 py-6">
         {stage === 'wizard' && (
           <>

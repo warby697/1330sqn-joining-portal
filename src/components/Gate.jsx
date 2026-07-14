@@ -1,23 +1,27 @@
 import { useState } from 'react'
-
-const DEMO_PIN = '1234'
+import { getPin } from '../lib/pin'
 
 export default function Gate({ onEnter }) {
   const [surname, setSurname] = useState('')
+  const [forename, setForename] = useState('')
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
   const submit = (e) => {
     e.preventDefault()
     if (!surname.trim()) {
-      setError('Enter your surname to continue.')
+      setError("Enter the cadet's surname to continue.")
       return
     }
-    if (pin !== DEMO_PIN) {
-      setError('That PIN doesn\'t match — check the notice at the squadron HQ.')
+    if (!forename.trim()) {
+      setError("Enter the cadet's first name to continue.")
       return
     }
-    onEnter(surname.trim(), pin)
+    if (pin !== getPin()) {
+      setError('That code doesn\'t match — check the notice at the squadron HQ.')
+      return
+    }
+    onEnter(forename.trim(), surname.trim(), pin)
   }
 
   return (
@@ -35,14 +39,14 @@ export default function Gate({ onEnter }) {
         <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white shadow-lg shadow-black/5 border border-slate-200 p-6">
           <h2 className="text-base font-semibold text-slate-900 mb-1">Let's get started</h2>
           <p className="text-sm text-slate-500 mb-4">
-            Enter the cadet's surname and the joining PIN given to you at the squadron.
+            Enter the cadet's name and the code given to you at the squadron.
           </p>
 
           <div className="rounded-lg bg-[var(--navy-soft)] px-3.5 py-3 mb-5">
             <p className="text-sm font-medium text-[var(--navy)]">Takes about 15–20 minutes.</p>
             <p className="text-xs text-slate-600 mt-1">
               Please complete it in one sitting once you start — progress isn't saved if you close the page. You
-              have 48 hours from now before this PIN stops working.
+              have 48 hours from now before this code stops working.
             </p>
           </div>
 
@@ -56,8 +60,17 @@ export default function Gate({ onEnter }) {
             />
           </label>
 
-          <label className="block mb-2">
-            <span className="text-sm font-medium text-slate-800">4-digit PIN</span>
+          <label className="block mb-4">
+            <span className="text-sm font-medium text-slate-800">Cadet's first name</span>
+            <input
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-[15px] outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20"
+              value={forename}
+              onChange={(e) => setForename(e.target.value)}
+            />
+          </label>
+
+          <label className="block mb-5">
+            <span className="text-sm font-medium text-slate-800">4-digit code</span>
             <input
               inputMode="numeric"
               maxLength={4}
@@ -66,7 +79,6 @@ export default function Gate({ onEnter }) {
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
             />
           </label>
-          <p className="text-xs text-slate-400 mb-5">Demo PIN: 1234 (rotated every 3 months in real use)</p>
 
           {error && <p className="text-sm text-[var(--amber)] mb-4">{error}</p>}
 
