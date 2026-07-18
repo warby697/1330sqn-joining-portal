@@ -7,6 +7,8 @@ export const steps3822A = [
     section: '1a',
     title: "Cadet's details",
     subtitle: 'Gender and ethnicity are used only for anonymised MoD statistical reporting — never shared with a name attached.',
+    completeIf: (d) => d['cadet.gender'] !== 'other' || String(d['cadet.genderOther'] || '').trim() !== '',
+    incompleteMessage: "Please specify the cadet's gender in the box shown.",
     fields: [
       { type: 'text', id: 'cadet.fullName', label: "Cadet's full name", help: 'As it appears on their birth certificate or passport.', required: true },
       { type: 'date', id: 'cadet.dob', label: 'Date of birth', help: 'Must be at least 12 and in Year 8 (S2 in Scotland) or above.', required: true },
@@ -37,9 +39,11 @@ export const steps3822A = [
     section: '1c',
     title: "Cadet's contact details",
     subtitle: 'At least one phone number and a working primary email are required to set up the Cadet Portal account.',
+    completeIf: (d) => String(d['cadet.mobile'] || '').trim() !== '' || String(d['cadet.homePhone'] || '').trim() !== '',
+    incompleteMessage: 'Please enter at least one phone number for the cadet (mobile or home).',
     fields: [
       ...addressFields('cadet.address'),
-      { type: 'text', id: 'cadet.mobile', label: 'Mobile phone', half: true },
+      { type: 'text', id: 'cadet.mobile', label: 'Mobile phone', help: 'Enter at least one of mobile or home phone.', half: true },
       { type: 'text', id: 'cadet.homePhone', label: 'Home phone', half: true },
       {
         type: 'notice',
@@ -187,9 +191,14 @@ The RAF Air Cadets utilises official MOD web-based accredited collaboration, mee
 I understand that I have the right, as the adult with parental responsibility, to access data relating to my child, to be informed about the existence and extent of data processing, to rectify incorrect personal data, and to oppose further processing on serious and legitimate grounds. The personal details contained in this Consent Certificate will be transferred to my child's central record held on the Cadet Forces MIS.`,
       },
       { type: 'yn', id: 'consent.contactShare', required: true, label: 'OK for staff to contact you using these details?' },
-      { type: 'text', id: 'signature.forename', label: 'Your forename', required: true, half: true },
-      { type: 'text', id: 'signature.surname', label: 'Your surname', required: true, half: true, help: 'This becomes the reference used for payments and kit measurements.' },
-      { type: 'text', id: 'signature.signature', label: 'Type your name to sign', required: true, help: 'Same standing as a handwritten signature.' },
+      {
+        type: 'readback',
+        id: 'signature.signerName',
+        label: 'Signing as',
+        valueFor: (d) => d['parent1.fullName'] || '',
+        help: 'The parent/guardian with parental responsibility, from Section 2a. Payments use the cadet’s reference, not this name.',
+      },
+      { type: 'text', id: 'signature.signature', label: 'Type your full name to sign', required: true, help: 'Same standing as a handwritten signature.' },
     ],
   },
 ]

@@ -22,6 +22,17 @@ export default function FieldRenderer({ field, value, onChange, formData }) {
     )
   }
 
+  if (field.type === 'readback') {
+    const val = field.valueFor ? field.valueFor(formData || {}) : ''
+    return (
+      <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <span className="block text-xs font-medium text-slate-500">{field.label}</span>
+        <span className="block text-[15px] font-semibold text-slate-800 mt-0.5">{val || '—'}</span>
+        {field.help && <span className="block text-xs text-slate-500 mt-1">{field.help}</span>}
+      </div>
+    )
+  }
+
   if (field.type === 'details') {
     return (
       <details className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 group">

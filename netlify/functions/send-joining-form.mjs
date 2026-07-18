@@ -227,8 +227,7 @@ async function buildFormPdf(formData, reference) {
   // --- Section 8: Agreement & signature ---
   drawSectionHeader('8. Agreement & signature (3822A)')
   drawRow('OK for staff to contact using these details?', yn(formData['consent.contactShare']))
-  drawRow('Signed by (forename)', formData['signature.forename'])
-  drawRow('Signed by (surname)', formData['signature.surname'])
+  drawRow('Signed by', formData['parent1.fullName'])
   drawRow('Signature', formData['signature.signature'], { bold: true })
   y -= 6
 
@@ -320,9 +319,23 @@ export default async (req) => {
   }
 
   const { formData, recipients } = body
-  if (!formData || !Array.isArray(recipients) || recipients.length === 0) {
-    return new Response(JSON.stringify({ error: 'Missing formData or recipients' }), { status: 400 })
+  if (!formData) {
+    return new Response(JSON.stringify({ error: 'Missing formData' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
+
+  // Where completed forms get emailed. Precedence:
+  //  1. ADMIN_EMAILS env var (set in Netlify) — central control, wins on every device so
+  //     staff can redirect submissions without a code change or worrying which browser was used.
+  //  2. The address(es) chosen in the in-app admin panel (sent by the client).
+  //  3. A safe default, so a submission can never silently go nowhere.
+  const DEFAULT_ADMIN_EMAILS = ['1330squadronops@gmail.com']
+  const parseList = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean)
+  const envEmails = parseList(process.env.ADMIN_EMAILS)
+  const clientEmails = Array.isArray(recipients) ? recipients.map((s) => String(s).trim()).filter(Boolean) : []
+  const toList = envEmails.length ? envEmails : clientEmails.length ? clientEmails : DEFAULT_ADMIN_EMAILS
 
   const { surname, forename } = cadetNameParts(formData)
   const reference = buildReference(formData)
@@ -341,7 +354,7 @@ export default async (req) => {
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from: formatFrom(from),
-      to: recipients,
+      to: toList,
       ...(parentEmail ? { cc: [parentEmail] } : {}),
       subject,
       text: bodyText,

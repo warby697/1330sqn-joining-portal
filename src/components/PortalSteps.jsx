@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { buildReference } from '../lib/reference'
+import { buildReference, nameParts } from '../lib/reference'
 import { getAdminEmails } from '../lib/adminEmails'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 import SummaryPreview from './SummaryPreview'
@@ -27,8 +27,8 @@ export function FeeStep({ formData, onSkip, onBack }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reference: ref,
-          givenName: formData['signature.forename'] || '',
-          familyName: formData['signature.surname'] || '',
+          givenName: nameParts(formData['parent1.fullName']).forename,
+          familyName: nameParts(formData['parent1.fullName']).surname,
           email: formData['parent1.primaryEmail'] || '',
           returnUrl: window.location.origin + window.location.pathname,
         }),
@@ -189,8 +189,8 @@ export function SubsStep({ formData, onSkip, onBack }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reference: ref,
-          givenName: formData['signature.forename'] || '',
-          familyName: formData['signature.surname'] || '',
+          givenName: nameParts(formData['parent1.fullName']).forename,
+          familyName: nameParts(formData['parent1.fullName']).surname,
           email: formData['parent1.primaryEmail'] || '',
           returnUrl: window.location.origin + window.location.pathname,
         }),

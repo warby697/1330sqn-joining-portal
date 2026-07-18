@@ -1,5 +1,5 @@
 const KEY = 'joining-portal-admin-emails'
-const DEFAULT_EMAILS = ['recruiting@1330squadron.bader.mod.uk']
+const DEFAULT_EMAILS = ['1330squadronops@gmail.com']
 
 export function getAdminEmails() {
   try {

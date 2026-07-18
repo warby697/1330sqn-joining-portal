@@ -5,10 +5,18 @@ import Declaration from './Declaration'
 
 function isAnswered(field, formData) {
   const v = formData[field.id]
-  if (field.type === 'yn' || field.type === 'ack') return typeof v === 'boolean'
-  if (field.type === 'checklist') return true
-  return v !== undefined && v !== null && v !== ''
+  if (field.type === 'ack') return v === true
+  if (field.type === 'yn') return typeof v === 'boolean'
+  if (field.type === 'checklist') return Array.isArray(v) && v.length > 0
+  return v !== undefined && v !== null && String(v).trim() !== ''
 }
+
+function fieldRequired(field, formData) {
+  if (typeof field.requiredIf === 'function') return field.requiredIf(formData)
+  return Boolean(field.required)
+}
+
+const filled = (v) => v !== undefined && v !== null && String(v).trim() !== ''
 
 export default function StepScreen({ step, formData, update }) {
   const onChange = (id, value) => update({ [id]: value })
@@ -73,11 +81,37 @@ export default function StepScreen({ step, formData, update }) {
   )
 }
 
-export function stepIsComplete(step, formData) {
-  if (!step.fields) return true
-  return step.fields
-    .filter((f) => f.required && (!f.showIf || f.showIf(formData)))
-    .every((f) => isAnswered(f, formData))
+// Returns a human-readable reason the step can't be completed yet, or null if it's good to go.
+// Also covers the custom `kind` screens (declaration, condition-details), which have no
+// `fields` array and would otherwise skip validation entirely.
+export function stepIncompleteReason(step, formData) {
+  if (step.kind === 'declaration') {
+    const sig = formData['health.signature'] || {}
+    if (!(filled(sig.forename) && filled(sig.surname) && filled(sig.signature))) {
+      return 'Please add the signature to complete the health declaration.'
+    }
+    return null
+  }
+  if (step.kind === 'condition-details') {
+    const ticked = formData['health.conditions'] || []
+    const details = formData['health.details'] || {}
+    if (!ticked.every((key) => filled(details[key]?.severity))) {
+      return 'Please choose a severity for each condition you ticked.'
+    }
+    return null
+  }
+
+  if (!step.fields) return null
+
+  const missing = step.fields.find(
+    (f) => fieldRequired(f, formData) && (!f.showIf || f.showIf(formData)) && !isAnswered(f, formData)
+  )
+  if (missing) return 'Please fill in the required fields (marked *) before continuing.'
+
+  if (typeof step.completeIf === 'function' && !step.completeIf(formData)) {
+    return step.incompleteMessage || 'Please complete this section before continuing.'
+  }
+  return null
 }
 
 export function stepBlockedReason(step, formData) {

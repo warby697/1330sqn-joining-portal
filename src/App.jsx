@@ -3,7 +3,7 @@ import Header from './components/Header'
 import Gate from './components/Gate'
 import AdminSettings from './components/AdminSettings'
 import ProgressBar from './components/ProgressBar'
-import StepScreen, { stepIsComplete, stepBlockedReason } from './components/StepScreen'
+import StepScreen, { stepIncompleteReason, stepBlockedReason } from './components/StepScreen'
 import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, DoneStep } from './components/PortalSteps'
 import { steps3822A } from './lib/steps3822A'
 import { steps3822H } from './lib/steps3822H'
@@ -83,8 +83,9 @@ export default function App() {
       setBlocked(reason)
       return
     }
-    if (!stepIsComplete(step, formData)) {
-      setBlocked('Please fill in the required fields (marked *) before continuing.')
+    const incomplete = stepIncompleteReason(step, formData)
+    if (incomplete) {
+      setBlocked(incomplete)
       return
     }
     if (wizardIndex < steps.length - 1) {
