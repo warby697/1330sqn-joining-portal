@@ -15,13 +15,17 @@ import { FEE_LABEL, SUBS_LABEL } from '../../src/lib/pricing.js'
 
 const PAGE_WIDTH = 595.28 // A4 portrait, points
 const PAGE_HEIGHT = 841.89
-const MARGIN = 40
-const LABEL_WIDTH = 175
+const MARGIN = 44
+const LABEL_WIDTH = 188
+const GUTTER = 14
+const LINE = 12.5
 
-const GREEN = rgb(0.16, 0.4, 0.24)
-const AMBER = rgb(0.7, 0.5, 0.1)
-const GREY = rgb(0.5, 0.5, 0.5)
-const HEADER_BG = rgb(0.93, 0.94, 0.96)
+const NAVY = rgb(0.07, 0.15, 0.28)
+const GREEN = rgb(0.13, 0.42, 0.22)
+const AMBER = rgb(0.72, 0.5, 0.06)
+const GREY = rgb(0.42, 0.45, 0.5)
+const LIGHT = rgb(0.9, 0.91, 0.93)
+const WHITE = rgb(1, 1, 1)
 
 const PAYMENT_LABELS = { paid: 'Paid', active: 'Active', unconfirmed: 'NOT CONFIRMED — check GoCardless' }
 const SENDER_DISPLAY_NAME = '1330 Squadron RAF Air Cadets'
@@ -75,44 +79,60 @@ async function buildFormPdf(formData, reference) {
   const font = await doc.embedFont(StandardFonts.Helvetica)
   const bold = await doc.embedFont(StandardFonts.HelveticaBold)
   const usableWidth = PAGE_WIDTH - MARGIN * 2
-  const valueWidth = usableWidth - LABEL_WIDTH
 
   let page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   let y = PAGE_HEIGHT - MARGIN
   const newPage = () => { page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]); y = PAGE_HEIGHT - MARGIN }
-  const ensureSpace = (needed) => { if (y - needed < MARGIN) newPage() }
+  const ensureSpace = (needed) => { if (y - needed < MARGIN + 8) newPage() }
 
+  // Two-column row where BOTH the label and the value wrap; the row is as tall as whichever
+  // column has more lines, so long labels never run across into the answers.
   const drawRow = (label, value, opts = {}) => {
+    const indent = opts.indent || 0
+    const labelX = MARGIN + indent
+    const valueX = MARGIN + LABEL_WIDTH + GUTTER
+    const valueMaxWidth = usableWidth - LABEL_WIDTH - GUTTER
     const text = value === undefined || value === null || value === '' ? '—' : String(value)
     const valueFont = opts.bold ? bold : font
-    const lines = wrapText(text, valueFont, 10, valueWidth)
-    const rowHeight = Math.max(16, lines.length * 12 + 4)
+    const labelLines = wrapText(label, font, 8.5, LABEL_WIDTH - indent)
+    const valueLines = wrapText(text, valueFont, 9.5, valueMaxWidth)
+    const rowHeight = Math.max(labelLines.length, valueLines.length) * LINE + 5
     ensureSpace(rowHeight)
-    page.drawText(label, { x: MARGIN + (opts.indent || 0), y, size: 9, font, color: GREY })
-    lines.forEach((line, i) => {
-      page.drawText(line, { x: MARGIN + LABEL_WIDTH, y: y - i * 12, size: 10, font: valueFont, color: opts.color })
-    })
+    const top = y
+    labelLines.forEach((ln, i) => page.drawText(ln, { x: labelX, y: top - i * LINE, size: 8.5, font, color: GREY }))
+    valueLines.forEach((ln, i) =>
+      page.drawText(ln, { x: valueX, y: top - i * LINE, size: 9.5, font: valueFont, ...(opts.color ? { color: opts.color } : {}) })
+    )
     y -= rowHeight
+    page.drawLine({ start: { x: MARGIN, y: y + 3 }, end: { x: MARGIN + usableWidth, y: y + 3 }, thickness: 0.3, color: LIGHT })
   }
 
   const drawSectionHeader = (title) => {
-    ensureSpace(24)
-    page.drawRectangle({ x: MARGIN, y: y - 18, width: usableWidth, height: 18, color: HEADER_BG })
-    page.drawText(title, { x: MARGIN + 6, y: y - 13, size: 10, font: bold })
-    y -= 24
+    ensureSpace(32)
+    y -= 6
+    page.drawRectangle({ x: MARGIN, y: y - 16, width: usableWidth, height: 19, color: NAVY })
+    page.drawText(title, { x: MARGIN + 8, y: y - 11, size: 10, font: bold, color: WHITE })
+    y -= 28
   }
 
   const drawSubHeader = (title) => {
-    ensureSpace(16)
-    page.drawText(title, { x: MARGIN, y, size: 9.5, font: bold, color: rgb(0.12, 0.16, 0.32) })
+    ensureSpace(18)
+    y -= 2
+    page.drawText(title, { x: MARGIN, y, size: 9.5, font: bold, color: NAVY })
     y -= 15
   }
 
-  page.drawText('1330 Squadron RAF Air Cadets', { x: MARGIN, y, size: 15, font: bold })
-  y -= 18
-  page.drawText('Joining Portal — Full Submission (Form 3822A / 3822H)', { x: MARGIN, y, size: 11, font, color: GREY })
-  y -= 14
-  page.drawText(`Reference: ${reference} · Generated ${new Date().toLocaleString('en-GB')}`, { x: MARGIN, y, size: 9, font, color: GREY })
+  // Header band
+  page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 76, width: PAGE_WIDTH, height: 76, color: NAVY })
+  page.drawText('1330 Squadron RAF Air Cadets', { x: MARGIN, y: PAGE_HEIGHT - 40, size: 16, font: bold, color: WHITE })
+  page.drawText('Joining Portal — Consent & Health Submission (Forms 3822A / 3822H)', {
+    x: MARGIN, y: PAGE_HEIGHT - 58, size: 9.5, font, color: rgb(0.78, 0.83, 0.9),
+  })
+  y = PAGE_HEIGHT - 76 - 24
+  page.drawText(`Reference: ${reference}`, { x: MARGIN, y, size: 11, font: bold, color: NAVY })
+  const generated = `Generated ${new Date().toLocaleString('en-GB')}`
+  const genWidth = font.widthOfTextAtSize(generated, 8.5)
+  page.drawText(generated, { x: PAGE_WIDTH - MARGIN - genWidth, y, size: 8.5, font, color: GREY })
   y -= 20
 
   // --- 3822A Section 1a: Cadet's details ---
@@ -294,6 +314,15 @@ async function buildFormPdf(formData, reference) {
     drawRow('Signed by (surname)', formData['health.signature']?.surname)
     drawRow('Signature', formData['health.signature']?.signature, { bold: true })
   }
+
+  const pages = doc.getPages()
+  pages.forEach((p, i) => {
+    p.drawLine({ start: { x: MARGIN, y: 40 }, end: { x: PAGE_WIDTH - MARGIN, y: 40 }, thickness: 0.4, color: LIGHT })
+    p.drawText('OFFICIAL (SENSITIVE) — PERSONAL (when completed)', { x: MARGIN, y: 28, size: 7.5, font, color: GREY })
+    const label = `Page ${i + 1} of ${pages.length}`
+    const w = font.widthOfTextAtSize(label, 7.5)
+    p.drawText(label, { x: PAGE_WIDTH - MARGIN - w, y: 28, size: 7.5, font, color: GREY })
+  })
 
   const bytes = await doc.save()
   return bytes
