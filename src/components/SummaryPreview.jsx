@@ -1,5 +1,5 @@
 import { buildReference } from '../lib/reference'
-import { CONDITION_OPTIONS, ALLERGY_OPTIONS, GENDER_OPTIONS, PRONOUN_OPTIONS } from '../lib/options'
+import { CONDITION_OPTIONS, ALLERGY_OPTIONS, GENDER_OPTIONS, PRONOUN_OPTIONS, NATIONALITY_OPTIONS } from '../lib/options'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 
 const dash = (v) => (v === undefined || v === null || v === '' ? '—' : v)
@@ -101,7 +101,7 @@ export default function SummaryPreview({ formData }) {
             <Row k="Cadet" v={formData['cadet.fullName']} />
             <Row k="Date of birth" v={formData['cadet.dob'] && `${formData['cadet.dob']}${age !== null ? ` (age ${age})` : ''}`} />
             <Row k="Gender / pronoun" v={genderLabel && `${genderLabel}${pronounLabel ? ' · ' + pronounLabel : ''}`} />
-            <Row k="Nationality" v={formData['cadet.nationality']} />
+            <Row k="Nationality" v={formData['cadet.nationality'] === 'other' ? formData['cadet.nationalityOther'] : NATIONALITY_OPTIONS.find((n) => n.value === formData['cadet.nationality'])?.label} />
             <Row k="School" v={formData['cadet.school']} />
             <Row k="Address" v={addr('cadet.address')} />
           </div>

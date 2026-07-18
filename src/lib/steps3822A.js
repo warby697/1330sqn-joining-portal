@@ -1,5 +1,5 @@
 import { addressFields } from './addressFields'
-import { GENDER_OPTIONS, PRONOUN_OPTIONS, ETHNICITY_OPTIONS, PREV_ORG_OPTIONS } from './options'
+import { NATIONALITY_OPTIONS, GENDER_OPTIONS, PRONOUN_OPTIONS, ETHNICITY_OPTIONS, PREV_ORG_OPTIONS } from './options'
 
 export const steps3822A = [
   {
@@ -7,12 +7,17 @@ export const steps3822A = [
     section: '1a',
     title: "Cadet's details",
     subtitle: 'Gender and ethnicity are used only for anonymised MoD statistical reporting — never shared with a name attached.',
-    completeIf: (d) => d['cadet.gender'] !== 'other' || String(d['cadet.genderOther'] || '').trim() !== '',
-    incompleteMessage: "Please specify the cadet's gender in the box shown.",
+    completeIf: (d) =>
+      (d['cadet.gender'] !== 'other' || String(d['cadet.genderOther'] || '').trim() !== '') &&
+      (d['cadet.nationality'] !== 'other' || String(d['cadet.nationalityOther'] || '').trim() !== ''),
+    incompleteMessage: "Please fill in the 'please specify' box for your selection.",
     fields: [
       { type: 'text', id: 'cadet.fullName', label: "Cadet's full name", help: 'As it appears on their birth certificate or passport.', required: true },
       { type: 'date', id: 'cadet.dob', label: 'Date of birth', help: 'Must be at least 12 and in Year 8 (S2 in Scotland) or above.', required: true },
-      { type: 'text', id: 'cadet.nationality', label: 'Nationality', required: true },
+      {
+        type: 'select', id: 'cadet.nationality', label: 'Nationality', required: true, options: NATIONALITY_OPTIONS,
+        otherValue: 'other', otherField: { type: 'text', id: 'cadet.nationalityOther', label: 'Please specify nationality' },
+      },
       { type: 'text', id: 'cadet.religion', label: 'Religion (optional)', help: "Used for pastoral care only — leave blank if you'd rather not say." },
       {
         type: 'select', id: 'cadet.gender', label: 'Gender', required: true, options: GENDER_OPTIONS,

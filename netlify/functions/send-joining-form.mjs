@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { cadetNameParts, buildReference } from '../../src/lib/reference.js'
 import {
+  NATIONALITY_OPTIONS,
   GENDER_OPTIONS,
   PRONOUN_OPTIONS,
   ETHNICITY_OPTIONS,
@@ -118,7 +119,7 @@ async function buildFormPdf(formData, reference) {
   drawSectionHeader("1a. Cadet's details")
   drawRow("Cadet's full name", formData['cadet.fullName'])
   drawRow('Date of birth', formData['cadet.dob'])
-  drawRow('Nationality', formData['cadet.nationality'])
+  drawRow('Nationality', formData['cadet.nationality'] === 'other' ? formData['cadet.nationalityOther'] : labelOf(NATIONALITY_OPTIONS, formData['cadet.nationality']))
   drawRow('Religion', formData['cadet.religion'])
   drawRow('Gender', labelOf(GENDER_OPTIONS, formData['cadet.gender']))
   if (formData['cadet.gender'] === 'other') drawRow('Gender (please specify)', formData['cadet.genderOther'])

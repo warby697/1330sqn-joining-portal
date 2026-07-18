@@ -4,6 +4,12 @@ import { getAdminEmails } from '../lib/adminEmails'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 import SummaryPreview from './SummaryPreview'
 
+// Stashed before we hand off to GoCardless so we can resume the confirm step on return.
+// sessionStorage survives the cross-origin round-trip to GoCardless and back in the same tab;
+// GoCardless does not reliably append the billing request id to the return URL, so we can't
+// depend on the query string alone.
+export const PENDING_PAYMENT_KEY = 'joining-portal:pending-payment'
+
 function Card({ children }) {
   return <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">{children}</div>
 }
@@ -35,6 +41,7 @@ export function FeeStep({ formData, onSkip, onBack }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the payment')
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'fee', billingRequestId: data.billingRequestId }))
       window.location.href = data.authorisationUrl
     } catch (e) {
       setError(e.message)
@@ -197,6 +204,7 @@ export function SubsStep({ formData, onSkip, onBack }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the Direct Debit setup')
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'subs', billingRequestId: data.billingRequestId }))
       window.location.href = data.authorisationUrl
     } catch (e) {
       setError(e.message)

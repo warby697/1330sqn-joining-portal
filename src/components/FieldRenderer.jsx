@@ -58,7 +58,7 @@ export default function FieldRenderer({ field, value, onChange, formData }) {
         />
         {field.otherValue && value === field.otherValue && field.otherField && (
           <div className="mt-3">
-            <FieldRenderer field={field.otherField} value={value} onChange={onChange} />
+            <FieldRenderer field={field.otherField} value={formData?.[field.otherField.id]} onChange={onChange} formData={formData} />
           </div>
         )}
       </div>
@@ -193,7 +193,7 @@ export default function FieldRenderer({ field, value, onChange, formData }) {
         </select>
         {field.otherValue && value === field.otherValue && field.otherField && (
           <div className="mt-3">
-            <FieldRenderer field={field.otherField} value={undefined} onChange={onChange} />
+            <FieldRenderer field={field.otherField} value={formData?.[field.otherField.id]} onChange={onChange} formData={formData} />
           </div>
         )}
       </div>

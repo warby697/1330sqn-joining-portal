@@ -4,7 +4,7 @@ import Gate from './components/Gate'
 import AdminSettings from './components/AdminSettings'
 import ProgressBar from './components/ProgressBar'
 import StepScreen, { stepIncompleteReason, stepBlockedReason } from './components/StepScreen'
-import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, DoneStep } from './components/PortalSteps'
+import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, DoneStep, PENDING_PAYMENT_KEY } from './components/PortalSteps'
 import { steps3822A } from './lib/steps3822A'
 import { steps3822H } from './lib/steps3822H'
 import { buildReference } from './lib/reference'
@@ -31,16 +31,28 @@ export default function App() {
   const [blocked, setBlocked] = useState(null)
 
   // Coming back from a GoCardless hosted flow (fee payment or subs mandate) — the whole page
-  // reloads, so session state above is restored from sessionStorage; which flow we were on
-  // (still sitting in `stage` from before the redirect) decides which confirm step runs.
+  // reloads, so we recover the billing request id we stashed in sessionStorage before the
+  // redirect (GoCardless doesn't reliably put it in the return URL) and jump straight to the
+  // matching confirm step. Falls back to a URL param if one is present.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const billingRequestId = params.get('billing_request_id')
-    if (billingRequestId) {
-      setPendingBillingRequestId(billingRequestId)
-      setStage((current) => (current === 'fee' ? 'fee-confirming' : 'subs-confirming'))
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash)
+    let pending = null
+    try {
+      const raw = sessionStorage.getItem(PENDING_PAYMENT_KEY)
+      if (raw) pending = JSON.parse(raw)
+    } catch {
+      pending = null
     }
+    const urlBillingRequestId = new URLSearchParams(window.location.search).get('billing_request_id')
+    const billingRequestId = pending?.billingRequestId || urlBillingRequestId
+    if (!billingRequestId) return
+
+    setPendingBillingRequestId(billingRequestId)
+    if (pending?.kind === 'subs') setStage('subs-confirming')
+    else if (pending?.kind === 'fee') setStage('fee-confirming')
+    else setStage((current) => (current === 'subs' ? 'subs-confirming' : 'fee-confirming'))
+
+    sessionStorage.removeItem(PENDING_PAYMENT_KEY)
+    window.history.replaceState({}, '', window.location.pathname + window.location.hash)
   }, [])
 
   useEffect(() => {

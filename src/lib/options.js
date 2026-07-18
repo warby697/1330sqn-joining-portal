@@ -1,3 +1,9 @@
+export const NATIONALITY_OPTIONS = [
+  { value: 'british', label: 'British' },
+  { value: 'irish', label: 'Irish' },
+  { value: 'other', label: 'Other (please specify)' },
+]
+
 export const GENDER_OPTIONS = [
   { value: 'male', label: 'Male' },
   { value: 'female', label: 'Female' },
