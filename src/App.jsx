@@ -4,7 +4,7 @@ import Gate from './components/Gate'
 import AdminSettings from './components/AdminSettings'
 import ProgressBar from './components/ProgressBar'
 import StepScreen, { stepIncompleteReason, stepBlockedReason } from './components/StepScreen'
-import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, DoneStep, PENDING_PAYMENT_KEY } from './components/PortalSteps'
+import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, GiftAidStep, DoneStep, PENDING_PAYMENT_KEY } from './components/PortalSteps'
 import { steps3822A } from './lib/steps3822A'
 import { steps3822H } from './lib/steps3822H'
 import { buildReference } from './lib/reference'
@@ -22,8 +22,21 @@ function loadSession() {
 
 const initialSession = loadSession()
 
+const routeFromHash = () => window.location.hash === '#admin' ? 'admin' : window.location.hash === '#confirmation-preview' ? 'preview' : window.location.hash === '#gift-aid-preview' ? 'gift-aid-preview' : 'app'
+const previewData = {
+  'cadet.fullName': 'Alex Example', 'cadet.dob': '2012-05-14', 'cadet.gender': 'prefer-not',
+  'cadet.nationality': 'British', 'cadet.school': 'Example High School', 'cadet.address.property': '10',
+  'cadet.address.street': 'Example Road', 'cadet.address.town': 'Warrington', 'cadet.address.postcode': 'WA1 1AA',
+  'parent1.fullName': 'Sam Example', 'parent1.parentalResponsibility': true, 'parent1.mobile': '07123 456789',
+  'parent1.primaryEmail': 'sam@example.com', 'cadet.externalAgency': false, 'cadet.hasMedical': false,
+  'payment.feeStatus': 'paid', 'payment.subsStatus': 'active', 'giftAid.status': 'declared',
+  'consent.photo': true, 'consent.flyingLight': true, 'consent.flyingSolo': true, 'consent.flyingTransport': true,
+  'consent.flyingOther': true, 'consent.marksmanship': true, 'consent.physical': true, 'consent.lowerRisk': true,
+  'consent.transport': true, 'consent.medicalTreatment': true, 'consent.contactShare': true, 'signature.signature': 'Sam Example',
+}
+
 export default function App() {
-  const [route, setRoute] = useState(window.location.hash === '#admin' ? 'admin' : 'app')
+  const [route, setRoute] = useState(routeFromHash())
   const [stage, setStage] = useState(initialSession?.stage || 'gate')
   const [wizardIndex, setWizardIndex] = useState(initialSession?.wizardIndex || 0)
   const [formData, setFormData] = useState(initialSession?.formData || {})
@@ -65,7 +78,7 @@ export default function App() {
   }, [stage])
 
   useEffect(() => {
-    const onHashChange = () => setRoute(window.location.hash === '#admin' ? 'admin' : 'app')
+    const onHashChange = () => setRoute(routeFromHash())
     window.addEventListener('hashchange', onHashChange)
     return () => window.removeEventListener('hashchange', onHashChange)
   }, [])
@@ -76,6 +89,8 @@ export default function App() {
   )
 
   if (route === 'admin') return <AdminSettings />
+  if (route === 'preview') return <div className="min-h-screen"><Header subtitle="Confirmation preview" /><main className="mx-auto max-w-2xl px-5 py-6"><DoneStep formData={previewData} preview /></main></div>
+  if (route === 'gift-aid-preview') return <div className="min-h-screen"><Header subtitle="Gift Aid preview" /><main className="mx-auto max-w-2xl px-5 py-6"><GiftAidStep formData={{ ...previewData, 'parent1.address.property': '10', 'parent1.address.street': 'Example Road', 'parent1.address.town': 'Warrington', 'parent1.address.postcode': 'WA1 1AA' }} update={() => {}} onBack={() => {}} onDone={() => {}} /></main></div>
 
   const update = (patch) => {
     setFormData((prev) => ({ ...prev, ...patch }))
@@ -121,6 +136,8 @@ export default function App() {
       ? 'Joining fee'
       : stage === 'subs' || stage === 'subs-confirming'
       ? 'Set up subs'
+      : stage === 'gift-aid'
+      ? 'Gift Aid declaration'
       : 'All done'
 
   if (stage === 'gate') return <Gate onEnter={handleEnter} />
@@ -188,7 +205,7 @@ export default function App() {
             onBack={() => setStage('fee')}
             onSkip={() => {
               update({ 'payment.subsStatus': 'unconfirmed' })
-              setStage('done')
+              setStage('gift-aid')
             }}
           />
         )}
@@ -198,11 +215,13 @@ export default function App() {
             reference={buildReference(formData)}
             onDone={() => {
               update({ 'payment.subsStatus': 'active' })
-              setStage('done')
+              setStage('gift-aid')
             }}
             onRetry={() => setStage('subs')}
           />
         )}
+
+        {stage === 'gift-aid' && <GiftAidStep formData={formData} update={update} onBack={() => setStage('subs')} onDone={() => setStage('done')} />}
 
         {stage === 'done' && <DoneStep formData={formData} />}
       </main>

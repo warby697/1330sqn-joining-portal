@@ -245,6 +245,26 @@ async function buildFormPdf(formData, reference) {
   })
   y -= 6
 
+  // --- Gift Aid declaration ---
+  drawSectionHeader('Gift Aid declaration')
+  if (formData['giftAid.status'] === 'declared') {
+    const scopeLabels = {
+      enclosed: 'The gift made now',
+      future: 'All gifts made today and in the future',
+      'past-and-future': 'All gifts made in the past six years and all future gifts',
+    }
+    drawRow('Charity', '1330 (Warrington) Squadron')
+    drawRow('Donor', formData['giftAid.donorName'])
+    drawRow('Home address', formData['giftAid.address'])
+    drawRow('Gifts covered', scopeLabels[formData['giftAid.scope']])
+    drawRow('Taxpayer declaration confirmed', yn(formData['giftAid.confirmed']))
+    drawRow('Signature', formData['giftAid.signature'], { bold: true })
+    drawRow('Declaration date', formData['giftAid.date'])
+  } else {
+    drawRow('Declaration', 'Not made')
+  }
+  y -= 6
+
   // --- Section 8: Agreement & signature ---
   drawSectionHeader('8. Agreement & signature (3822A)')
   drawRow('OK for staff to contact using these details?', yn(formData['consent.contactShare']))

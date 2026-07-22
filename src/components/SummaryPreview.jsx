@@ -133,6 +133,7 @@ export default function SummaryPreview({ formData }) {
         <div className="mb-5">
           <PaymentRow k={`Joining fee (${FEE_LABEL})`} status={formData['payment.feeStatus']} />
           <PaymentRow k={`Monthly subs (${SUBS_LABEL})`} status={formData['payment.subsStatus']} />
+          <Row k="Gift Aid declaration" v={formData['giftAid.status'] === 'declared' ? 'Completed' : formData['giftAid.status'] === 'skipped' ? 'Not declared' : undefined} />
         </div>
 
         <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--blue)] mb-2">Consents given</p>
@@ -199,15 +200,6 @@ export default function SummaryPreview({ formData }) {
           <span className="font-mono text-xs text-slate-500">{new Date().toLocaleString('en-GB')}</span>
         </div>
 
-        <div className="mt-5 rounded-lg bg-[var(--navy-soft)] px-4 py-3 text-sm">
-          <p className="font-semibold text-[var(--navy)] mb-1">For the parent/guardian copy of this email</p>
-          <p className="text-slate-700">
-            Save the 1330 Squadron Parent Portal to your phone's home screen for easy access to our signal chat,
-            event notices and important squadron updates:{' '}
-            <span className="font-mono text-[var(--blue)]">parent.1330squadron.example</span> — log in with the same
-            PIN you used to start this form.
-          </p>
-        </div>
       </div>
 
       <div className="bg-slate-50 border-t border-slate-200 px-6 py-2.5 flex justify-between text-[11px] text-slate-500">

@@ -19,7 +19,16 @@ function fieldRequired(field, formData) {
 const filled = (v) => v !== undefined && v !== null && String(v).trim() !== ''
 
 export default function StepScreen({ step, formData, update }) {
-  const onChange = (id, value) => update({ [id]: value })
+  const onChange = (id, value) => {
+    const patch = { [id]: value }
+    const match = id.match(/^(parent[12])\.addressSameAsCadet$/)
+    if (match && value === true) {
+      for (const part of ['property', 'street', 'area', 'town', 'county', 'postcode']) {
+        patch[`${match[1]}.address.${part}`] = formData[`cadet.address.${part}`] || ''
+      }
+    }
+    update(patch)
+  }
 
   if (step.kind === 'readonly-intro') {
     return (

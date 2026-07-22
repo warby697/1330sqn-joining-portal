@@ -100,7 +100,11 @@ export const steps3822A = [
       { type: 'text', id: 'parent1.title', label: 'Title', half: true },
       { type: 'text', id: 'parent1.fullName', label: 'Full name', required: true, half: true },
       { type: 'text', id: 'parent1.relationship', label: 'Relationship to cadet', required: true },
-      ...addressFields('parent1.address'),
+      {
+        type: 'yn', id: 'parent1.addressSameAsCadet', required: true,
+        label: "Is this parent/guardian's address the same as the cadet's?",
+      },
+      ...addressFields('parent1.address').map((f) => ({ ...f, showIf: (d) => d['parent1.addressSameAsCadet'] !== true })),
       { type: 'text', id: 'parent1.mobile', label: 'Mobile phone', half: true },
       { type: 'text', id: 'parent1.homePhone', label: 'Home phone', half: true },
       { type: 'text', id: 'parent1.primaryEmail', label: 'Primary email', required: true },
@@ -116,7 +120,14 @@ export const steps3822A = [
       { type: 'text', id: 'parent2.title', label: 'Title', half: true, showIf: (d) => d.hasSecondContact },
       { type: 'text', id: 'parent2.fullName', label: 'Full name', half: true, showIf: (d) => d.hasSecondContact },
       { type: 'text', id: 'parent2.relationship', label: 'Relationship to cadet', showIf: (d) => d.hasSecondContact },
-      ...addressFields('parent2.address', { required: false }).map((f) => ({ ...f, showIf: (d) => d.hasSecondContact })),
+      {
+        type: 'yn', id: 'parent2.addressSameAsCadet',
+        label: "Is this parent/guardian's address the same as the cadet's?",
+        showIf: (d) => d.hasSecondContact,
+      },
+      ...addressFields('parent2.address', { required: false }).map((f) => ({
+        ...f, showIf: (d) => d.hasSecondContact && d['parent2.addressSameAsCadet'] !== true,
+      })),
       { type: 'text', id: 'parent2.mobile', label: 'Mobile phone', half: true, showIf: (d) => d.hasSecondContact },
       { type: 'text', id: 'parent2.homePhone', label: 'Home phone', half: true, showIf: (d) => d.hasSecondContact },
       { type: 'text', id: 'parent2.primaryEmail', label: 'Primary email', showIf: (d) => d.hasSecondContact },
