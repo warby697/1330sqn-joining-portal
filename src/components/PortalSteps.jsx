@@ -399,7 +399,7 @@ export function GiftAidStep({ formData, update, onDone, onBack }) {
   </Card>
 }
 
-export function DoneStep({ formData, preview = false }) {
+export function DoneStep({ formData }) {
   const [emailStatus, setEmailStatus] = useState('sending')
   const [emailError, setEmailError] = useState(null)
   const [parentSignalOpened, setParentSignalOpened] = useState(false)
@@ -429,9 +429,9 @@ export function DoneStep({ formData, preview = false }) {
   }
 
   useEffect(() => {
-    if (!preview) sendEmail()
+    sendEmail()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview])
+  }, [])
 
   return (
     <div>
@@ -445,8 +445,7 @@ export function DoneStep({ formData, preview = false }) {
               need it, or in case the squadron asks for it again.
             </p>
           )}
-          {preview && <p className="font-medium text-[var(--blue)]">Preview mode — no email has been sent.</p>}
-          {!preview && emailStatus === 'sending' && <p className="text-slate-500">Sending your confirmation…</p>}
+          {emailStatus === 'sending' && <p className="text-slate-500">Sending your confirmation…</p>}
           {emailStatus === 'sent' && <p className="font-medium text-[var(--green)]">Confirmation sent.</p>}
           {emailStatus === 'error' && (
             <div className="rounded-lg bg-red-50 px-3 py-2 text-left text-red-700">

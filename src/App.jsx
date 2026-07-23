@@ -14,7 +14,14 @@ const SESSION_KEY = 'joining-portal:session'
 function loadSession() {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY)
-    return raw ? JSON.parse(raw) : null
+    if (!raw) return null
+    const session = JSON.parse(raw)
+    const cadetName = String(session?.formData?.['cadet.fullName'] || '')
+    if (/\b(test|example)\b/i.test(cadetName)) {
+      sessionStorage.removeItem(SESSION_KEY)
+      return null
+    }
+    return session
   } catch {
     return null
   }
@@ -22,18 +29,7 @@ function loadSession() {
 
 const initialSession = loadSession()
 
-const routeFromHash = () => window.location.hash === '#admin' ? 'admin' : window.location.hash === '#confirmation-preview' ? 'preview' : window.location.hash === '#gift-aid-preview' ? 'gift-aid-preview' : 'app'
-const previewData = {
-  'cadet.fullName': 'Alex Example', 'cadet.dob': '2012-05-14', 'cadet.gender': 'prefer-not',
-  'cadet.nationality': 'British', 'cadet.school': 'Example High School', 'cadet.address.property': '10',
-  'cadet.address.street': 'Example Road', 'cadet.address.town': 'Warrington', 'cadet.address.postcode': 'WA1 1AA',
-  'parent1.fullName': 'Sam Example', 'parent1.parentalResponsibility': true, 'parent1.mobile': '07123 456789',
-  'parent1.primaryEmail': 'sam@example.com', 'cadet.externalAgency': false, 'cadet.hasMedical': false,
-  'payment.feeStatus': 'paid', 'payment.subsStatus': 'active', 'giftAid.status': 'declared',
-  'consent.photo': true, 'consent.flyingLight': true, 'consent.flyingSolo': true, 'consent.flyingTransport': true,
-  'consent.flyingOther': true, 'consent.marksmanship': true, 'consent.physical': true, 'consent.lowerRisk': true,
-  'consent.transport': true, 'consent.medicalTreatment': true, 'consent.contactShare': true, 'signature.signature': 'Sam Example',
-}
+const routeFromHash = () => window.location.hash === '#admin' ? 'admin' : 'app'
 
 export default function App() {
   const [route, setRoute] = useState(routeFromHash())
@@ -89,8 +85,6 @@ export default function App() {
   )
 
   if (route === 'admin') return <AdminSettings />
-  if (route === 'preview') return <div className="min-h-screen"><Header subtitle="Confirmation preview" /><main className="mx-auto max-w-2xl px-5 py-6"><DoneStep formData={previewData} preview /></main></div>
-  if (route === 'gift-aid-preview') return <div className="min-h-screen"><Header subtitle="Gift Aid preview" /><main className="mx-auto max-w-2xl px-5 py-6"><GiftAidStep formData={{ ...previewData, 'parent1.address.property': '10', 'parent1.address.street': 'Example Road', 'parent1.address.town': 'Warrington', 'parent1.address.postcode': 'WA1 1AA' }} update={() => {}} onBack={() => {}} onDone={() => {}} /></main></div>
 
   const update = (patch) => {
     setFormData((prev) => ({ ...prev, ...patch }))
