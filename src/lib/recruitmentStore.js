@@ -31,14 +31,20 @@ const read = () => {
   }
 }
 
-const write = (data) => {
+// Writes local state immediately, then syncs ONLY the family/families that
+// changed to Firestore. Returns a promise that resolves when that sync lands
+// (or rejects if it fails) so callers can wait before advancing the UI.
+// Passing no id keeps the write local-only (used when the caller syncs itself).
+const write = (data, changedId) => {
   localStorage.setItem(STORE_KEY, JSON.stringify(data))
   window.dispatchEvent(new Event('recruitment-store-change'))
-  data.families.forEach((family) => {
-    const sharedFamily = { ...family, _messages: data.messages.filter((message) => message.familyId === family.id) }
-    syncFamily(sharedFamily).catch((error) => console.error('Could not sync family with Firestore:', error))
-  })
-  return data
+  if (changedId == null) return Promise.resolve()
+  const ids = Array.isArray(changedId) ? changedId : [changedId]
+  return Promise.all(
+    data.families
+      .filter((family) => ids.includes(family.id))
+      .map((family) => syncFamily({ ...family, _messages: data.messages.filter((message) => message.familyId === family.id) })),
+  )
 }
 
 const id = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -169,7 +175,7 @@ export async function sendOpenNightDateChangeEmail(family, cadet, oldDate, newDa
   return result
 }
 
-export function changeOpenNightDates(oldDates, newDates) {
+export async function changeOpenNightDates(oldDates, newDates) {
   const data = read()
   const affected = []
   oldDates.forEach((oldDate, index) => {
@@ -184,7 +190,7 @@ export function changeOpenNightDates(oldDates, newDates) {
       data.messages.push({ id: id('message'), familyId: family.id, cadetId: cadet.id, createdAt: iso(), status: 'simulated', kind: 'open_night_date_changed', to: family.guardian.email, subject: `Important: Open Night date changed for ${cadet.fullName}` })
     }))
   })
-  write(data)
+  await write(data, affected.map((item) => item.family.id))
   refreshOpenNights()
   return affected
 }
@@ -244,7 +250,7 @@ function setMessageDeliveryStatus(familyId, cadetId, kind, status, delivery = {}
   if (delivery.subject) latest.subject = delivery.subject
   if (delivery.body) latest.body = delivery.body
   if (delivery.providerMessageId) latest.providerMessageId = delivery.providerMessageId
-  write(data)
+  write(data, familyId).catch((error) => console.error('Could not sync message status:', error))
 }
 
 export function createEnquiry(values, existingId) {
@@ -284,7 +290,7 @@ export function createEnquiry(values, existingId) {
   return family
 }
 
-export function updateGuardianDetails(familyId, details) {
+export async function updateGuardianDetails(familyId, details) {
   const data = read()
   const family = data.families.find((item) => item.id === familyId)
   if (!family) return null
@@ -299,11 +305,11 @@ export function updateGuardianDetails(familyId, details) {
     if (details.dataTermsAccepted) family.dataTermsAcceptedAt = family.dataTermsAcceptedAt || iso()
   family.updatedAt = iso()
   data.messages.push({ id: id('message'), familyId, createdAt: iso(), status: 'simulated', kind: 'parent_verification', to: family.guardian.email, subject: 'Confirm your 1330 Squadron enquiry' })
-  write(data)
+  await write(data, familyId)
   return family
 }
 
-export function addCadetToFamily(familyId, values) {
+export async function addCadetToFamily(familyId, values) {
   const data = read()
   const family = data.families.find((item) => item.id === familyId)
   if (!family) return null
@@ -335,11 +341,11 @@ export function addCadetToFamily(familyId, values) {
       body: night ? getOpenNightBrief(family, cadet, night) : null,
     })
   }
-  write(data)
+  await write(data, familyId)
   return family
 }
 
-export function verifyGuardian(familyId, verificationCode) {
+export async function verifyGuardian(familyId, verificationCode) {
   const data = read()
   const family = data.families.find((item) => item.id === familyId)
   if (!family || family.verificationCode !== String(verificationCode)) return null
@@ -350,7 +356,7 @@ export function verifyGuardian(familyId, verificationCode) {
     cadet.eligibleIntakeDate = intake.toISOString()
     cadet.status = isEligibleForNextIntake(cadet) ? 'eligible' : 'future_waiting'
   })
-  write(data)
+  await write(data, familyId)
   return family
 }
 
@@ -413,9 +419,9 @@ export function resetOpenNightAttendance(familyId, cadetId) {
   })
 }
 
-export function validateJoiningCode(familyId, cadetId, joiningCode) {
+export async function validateJoiningCode(familyId, cadetId, joiningCode) {
   let accepted = false
-  const family = updateCadet(familyId, cadetId, (cadet) => {
+  const family = await updateCadet(familyId, cadetId, (cadet) => {
     const fallbackExpiry = cadet.attendedAt ? new Date(new Date(cadet.attendedAt).getTime() + 30 * 24 * 60 * 60 * 1000) : null
     const expiresAt = cadet.joiningCodeExpiresAt ? new Date(cadet.joiningCodeExpiresAt) : fallbackExpiry
     const validDate = !expiresAt || expiresAt >= new Date() || cadet.paperworkStatus === 'in_progress'
@@ -483,14 +489,13 @@ export async function deleteCadetEnquiry(familyId, cadetId) {
 }
 
 export async function markPaperworkComplete(familyId, cadetId) {
-  const family = updateCadet(familyId, cadetId, (cadet, currentFamily, data) => {
+  const family = await updateCadet(familyId, cadetId, (cadet, currentFamily, data) => {
     cadet.paperworkStatus = 'completed'
     cadet.paperworkCompletedAt = iso()
     cadet.status = 'ready_to_start'
     const snapshot = emailTemplate('joining_complete', { parentName: currentFamily.guardian.fullName, cadetName: cadet.fullName, startDate: cadet.intendedStartDate ? formatDate(cadet.intendedStartDate) : '' })
     data.messages.push({ id: id('message'), familyId, cadetId, createdAt: iso(), status: 'sent_with_form', kind: 'joining_complete', to: currentFamily.guardian.email, subject: snapshot.subject, body: snapshot.body })
   })
-  if (family) await persistFamily(family)
   return family
 }
 
@@ -569,13 +574,13 @@ export function getOpenNightRoster(openNightId) {
     .map((cadet) => ({ family, cadet })))
 }
 
-export function addStaffNote(familyId, note) {
+export async function addStaffNote(familyId, note) {
   const data = read()
   const family = data.families.find((item) => item.id === familyId)
   if (!family || !note.trim()) return family || null
   family.notes.unshift({ id: id('note'), text: note.trim(), createdAt: iso() })
   family.updatedAt = iso()
-  write(data)
+  await write(data, familyId)
   return family
 }
 
@@ -614,14 +619,14 @@ export function getCommunicationSchedule(family, selectedCadet = null) {
   return items
 }
 
-function updateCadet(familyId, cadetId, mutate) {
+async function updateCadet(familyId, cadetId, mutate) {
   const data = read()
   const family = data.families.find((item) => item.id === familyId)
   const cadet = family?.cadets.find((item) => item.id === cadetId)
   if (!family || !cadet) return null
   mutate(cadet, family, data)
   family.updatedAt = iso()
-  write(data)
+  await write(data, familyId)
   return family
 }
 

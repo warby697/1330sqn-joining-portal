@@ -231,7 +231,13 @@ function VerificationPage({ familyId, navigate, cadetLed = false, embedded = fal
       setError('Complete the parent contact details and accept the communications and data terms.')
       return
     }
-    const updated = updateGuardianDetails(family.id, { ...details, communicationsConsent: LOCAL_TEST_MODE || details.communicationsConsent })
+    let updated
+    try {
+      updated = await updateGuardianDetails(family.id, { ...details, communicationsConsent: LOCAL_TEST_MODE || details.communicationsConsent })
+    } catch {
+      setError('Your details could not be saved. Check your connection and try again.')
+      return
+    }
     setFamily(updated)
     try {
       await sendParentVerificationEmail(updated)
@@ -253,8 +259,13 @@ function VerificationPage({ familyId, navigate, cadetLed = false, embedded = fal
       setError('The verification email still could not be sent. Your details remain saved.')
     }
   }
-  const verify = () => {
-    const updated = verifyGuardian(family.id, LOCAL_TEST_MODE && !code ? family.verificationCode : code)
+  const verify = async () => {
+    let updated
+    try {
+      updated = await verifyGuardian(family.id, LOCAL_TEST_MODE && !code ? family.verificationCode : code)
+    } catch {
+      return setError('We could not confirm your code right now. Check your connection and try again.')
+    }
     if (!updated) return setError('That verification code is not correct.')
     setFamily(updated)
     if (onVerified) onVerified(updated)
@@ -301,6 +312,7 @@ export function FamilyDashboard({ familyId, accessToken = '', navigate, previewF
   const [selectedCadetId, setSelectedCadetId] = useState(() => (previewFamily || getFamily(familyId))?.cadets?.[0]?.id || '')
   const [reviewNightId, setReviewNightId] = useState('')
   const [movingBooking, setMovingBooking] = useState(false)
+  const [booking, setBooking] = useState(false)
   const [addingCadet, setAddingCadet] = useState(false)
   const [showWithdrawal, setShowWithdrawal] = useState(false)
   useEffect(() => {
@@ -319,7 +331,17 @@ export function FamilyDashboard({ familyId, accessToken = '', navigate, previewF
   const codeExpired = joiningCodeExpired(cadet)
   const schedule = getCommunicationSchedule(family, cadet)
   const book = async (nightId) => {
-    const updated = bookOpenNight(family.id, cadet.id, nightId)
+    if (booking) return
+    setBooking(true)
+    let updated
+    try {
+      updated = await bookOpenNight(family.id, cadet.id, nightId)
+    } catch {
+      setBooking(false)
+      setBookingEmailStatus('We could not save the booking. Check your connection and try again.')
+      return
+    }
+    setBooking(false)
     setFamily(updated)
     setReviewNightId('')
     setMovingBooking(false)
@@ -379,7 +401,7 @@ export function FamilyDashboard({ familyId, accessToken = '', navigate, previewF
           <div><h4 className="font-semibold text-slate-900">What will happen</h4><p>The evening includes a Squadron presentation, a welcome from the Officer Commanding, a cadet-led tour and a short team demonstration. Joining paperwork access is issued after attendance.</p></div>
           <div><h4 className="font-semibold text-slate-900">If you cannot attend</h4><p>Please tell us as early as possible so the place can be released and another date arranged. Please do not simply miss a confirmed booking.</p></div>
         </div>
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={() => book(night.id)} className={primary + ' flex-1'}>Confirm Booking</button><button type="button" onClick={() => setReviewNightId('')} className={secondary}>Choose another date</button></div>
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row"><button type="button" disabled={booking} onClick={() => book(night.id)} className={primary + ' flex-1 disabled:opacity-50'}>{booking ? 'Saving…' : 'Confirm Booking'}</button><button type="button" onClick={() => setReviewNightId('')} className={secondary}>Choose another date</button></div>
       </div>}</div>)}</div>
     </section>}
     {cadet.openNightAttendanceStatus === 'absent' && <section className="mt-6 border-2 border-[var(--gold)] bg-[var(--gold-soft)] p-6"><p className="text-xs font-bold uppercase tracking-wide text-[var(--amber)]">Open Night missed</p><h2 className="mt-2 text-xl font-semibold text-slate-900">Please tell us what you would like to do</h2><p className="mt-2 text-sm text-slate-700">You did not attend the booked Open Night. If you still wish to join, book another date below. If you no longer wish to continue, delete the enquiry.</p><div className="mt-4 grid gap-3">{OPEN_NIGHTS.filter((night) => night.id !== cadet.openNightId && new Date(night.startsAt) > new Date()).map((night) => <button key={night.id} onClick={() => book(night.id)} className="flex items-center justify-between border border-slate-300 bg-white px-4 py-3 text-left"><span><strong className="block text-sm text-slate-900">{formatDate(night.startsAt)}</strong><span className="text-xs text-slate-500">Arrival 19:10</span></span><span className="text-sm font-semibold text-[var(--blue)]">Rebook</span></button>)}</div><button type="button" onClick={() => setShowWithdrawal((value) => !value)} className="mt-5 text-sm font-semibold text-red-700 underline">Delete this cadet's enquiry</button>{showWithdrawal && <DeleteEnquiryConfirmation cadetName={cadet.fullName} onCancel={() => setShowWithdrawal(false)} onDelete={deleteEnquiry} />}{bookingEmailStatus && <p className="mt-3 text-sm text-slate-600">{bookingEmailStatus}</p>}</section>}
@@ -413,7 +435,7 @@ export function FamilyDashboard({ familyId, accessToken = '', navigate, previewF
       {movingBooking && <div className="mt-4 border-t border-slate-200 pt-4">
         <h3 className="font-semibold text-slate-900">Choose another date</h3>
         <p className="mt-1 text-sm text-slate-600">Your existing booking remains in place until you confirm the new date.</p>
-        <div className="mt-3 grid gap-3">{OPEN_NIGHTS.filter((night) => night.id !== bookedNight.id && new Date(night.startsAt) > new Date()).map((night) => <div key={night.id}><button type="button" onClick={() => setReviewNightId(night.id)} className={`flex w-full items-center justify-between border px-4 py-3 text-left ${reviewNightId === night.id ? 'border-[var(--blue)] bg-[var(--navy-soft)]' : 'border-slate-200 bg-white'}`}><span><strong className="block text-sm text-slate-900">{formatDate(night.startsAt)}</strong><span className="text-xs text-slate-500">Arrival 19:10 · Peninsula Barracks</span></span><span className="text-sm font-semibold text-[var(--blue)]">Select</span></button>{reviewNightId === night.id && <div className="border-2 border-t-0 border-[var(--navy)] bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Review new date</p><h4 className="mt-1 text-lg font-semibold text-[var(--navy)]">{formatDate(night.startsAt)}</h4><p className="mt-2 text-sm leading-6 text-slate-700">Arrive at 19:10 at {OPEN_NIGHT_ADDRESS}. The prospective cadet must attend with a parent or guardian, and both parents or guardians are welcome.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><button type="button" onClick={() => book(night.id)} className={primary + ' flex-1'}>Confirm move</button><button type="button" onClick={() => setReviewNightId('')} className={secondary}>Choose another date</button></div></div>}</div>)}</div>
+        <div className="mt-3 grid gap-3">{OPEN_NIGHTS.filter((night) => night.id !== bookedNight.id && new Date(night.startsAt) > new Date()).map((night) => <div key={night.id}><button type="button" onClick={() => setReviewNightId(night.id)} className={`flex w-full items-center justify-between border px-4 py-3 text-left ${reviewNightId === night.id ? 'border-[var(--blue)] bg-[var(--navy-soft)]' : 'border-slate-200 bg-white'}`}><span><strong className="block text-sm text-slate-900">{formatDate(night.startsAt)}</strong><span className="text-xs text-slate-500">Arrival 19:10 · Peninsula Barracks</span></span><span className="text-sm font-semibold text-[var(--blue)]">Select</span></button>{reviewNightId === night.id && <div className="border-2 border-t-0 border-[var(--navy)] bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Review new date</p><h4 className="mt-1 text-lg font-semibold text-[var(--navy)]">{formatDate(night.startsAt)}</h4><p className="mt-2 text-sm leading-6 text-slate-700">Arrive at 19:10 at {OPEN_NIGHT_ADDRESS}. The prospective cadet must attend with a parent or guardian, and both parents or guardians are welcome.</p><div className="mt-4 flex flex-col gap-2 sm:flex-row"><button type="button" disabled={booking} onClick={() => book(night.id)} className={primary + ' flex-1 disabled:opacity-50'}>{booking ? 'Saving…' : 'Confirm move'}</button><button type="button" onClick={() => setReviewNightId('')} className={secondary}>Choose another date</button></div></div>}</div>)}</div>
       </div>}
     </section>}
     {codeExpired && <section className="mt-6 border-2 border-[var(--gold)] bg-[var(--gold-soft)] p-6"><p className="text-xs font-bold uppercase tracking-wide text-[var(--amber)]">Joining code expired</p><h2 className="mt-2 text-xl font-semibold text-slate-900">Please attend another Open Night</h2><p className="mt-2 text-sm text-slate-700">The joining code was not used within 30 days. Choose another Open Night below and staff will issue a new code after you attend.</p><div className="mt-4 grid gap-3">{OPEN_NIGHTS.filter((night) => new Date(night.startsAt) > new Date()).map((night) => <button key={night.id} onClick={() => book(night.id)} className="flex items-center justify-between border border-slate-300 bg-white px-4 py-3 text-left"><span><strong className="block text-sm text-slate-900">{formatDate(night.startsAt)}</strong><span className="text-xs text-slate-500">Arrival 19:10</span></span><span className="text-sm font-semibold text-[var(--blue)]">Book</span></button>)}</div></section>}
@@ -427,7 +449,7 @@ function AddCadetForm({ family, onAdded, onCancel }) {
   const bookedCadets = family.cadets.filter((cadet) => cadet.openNightId && !cadet.attendedAt)
   const [values, setValues] = useState({ cadetName: '', cadetDob: '', schoolYear: '', openNightId: bookedCadets[0]?.openNightId || '' })
   const [error, setError] = useState('')
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault()
     const cadetDob = dobToIso(values.cadetDob)
     if (!LOCAL_TEST_MODE && (!values.cadetName.trim() || !cadetDob || !values.schoolYear)) {
@@ -435,7 +457,13 @@ function AddCadetForm({ family, onAdded, onCancel }) {
       return
     }
     const existingIds = new Set(family.cadets.map((cadet) => cadet.id))
-    const updated = addCadetToFamily(family.id, { ...values, cadetDob })
+    let updated
+    try {
+      updated = await addCadetToFamily(family.id, { ...values, cadetDob })
+    } catch {
+      setError('We could not save this cadet. Check your connection and try again.')
+      return
+    }
     const added = updated.cadets.find((cadet) => !existingIds.has(cadet.id))
     if (!added) {
       setError('A cadet with that name is already linked to this account.')
@@ -502,7 +530,11 @@ export function RecruitmentAdmin({ navigate, initialWorkspace = 'pipeline', onLo
   }, [])
   const selected = families.find((family) => family.id === selectedId)
   const refresh = () => setFamilies(listFamilies())
-  const act = (fn) => { fn(); refresh() }
+  const act = async (fn) => {
+    try { await fn() }
+    catch { window.alert('That change could not be saved to the Squadron system. Check your connection and try again.') }
+    refresh()
+  }
   const counts = useMemo(() => { const cadets = families.flatMap((family) => family.cadets); return { total: cadets.length, awaiting: families.filter((f) => !f.guardian.verifiedAt).length, booked: cadets.filter((cadet) => cadet.openNightId && !cadet.attendedAt && cadet.status !== 'withdrawn').length, paperwork: cadets.filter((cadet) => cadet.paperworkStatus !== 'locked').length, missed: cadets.filter((cadet) => hasMissedIntake(cadet)).length, withdrawn: cadets.filter((cadet) => cadet.status === 'withdrawn').length, joined: cadets.filter((cadet) => cadet.status === 'joined').length, active: cadets.filter((cadet) => !['joined', 'withdrawn'].includes(cadet.status)).length } }, [families])
   const withdrawalStats = useMemo(() => families.flatMap((family) => family.cadets).filter((cadet) => cadet.status === 'withdrawn').reduce((result, cadet) => ({ ...result, [cadet.withdrawalReason || 'not_recorded']: (result[cadet.withdrawalReason || 'not_recorded'] || 0) + 1 }), {}), [families])
   const sourceStats = useMemo(() => families.reduce((result, family) => { const label = family.source === 'School' && family.sourceDetail ? `School: ${family.sourceDetail}` : family.source || 'Not recorded'; return { ...result, [label]: (result[label] || 0) + family.cadets.length } }, {}), [families])
@@ -573,13 +605,28 @@ function OpenNightDesk({ onDataChanged }) {
 function OpenNightRosterRow({ family, cadet, night, onChanged }) {
   const [codeEmailStatus, setCodeEmailStatus] = useState('')
   const [absenceEmailStatus, setAbsenceEmailStatus] = useState('')
-  const markArrived = () => {
-    setOpenNightAttendance(family.id, cadet.id, { status: 'arrived', parentAttended: true, note: '' })
+  const [busy, setBusy] = useState(false)
+  const markArrived = async () => {
+    if (busy) return
+    setBusy(true)
+    try { await setOpenNightAttendance(family.id, cadet.id, { status: 'arrived', parentAttended: true, note: '' }) }
+    catch { setCodeEmailStatus('That could not be saved. Check your connection and try again.') }
+    finally { setBusy(false) }
     onChanged()
   }
   const approve = async () => {
-    setOpenNightAttendance(family.id, cadet.id, { status: 'attended', parentAttended: true, note: '' })
-    const updated = markAttended(family.id, cadet.id)
+    if (busy) return
+    setBusy(true)
+    let updated
+    try {
+      await setOpenNightAttendance(family.id, cadet.id, { status: 'attended', parentAttended: true, note: '' })
+      updated = await markAttended(family.id, cadet.id)
+    } catch {
+      setBusy(false)
+      setCodeEmailStatus('The joining code could not be saved. Check your connection and try again.')
+      onChanged()
+      return
+    }
     const approvedCadet = updated.cadets.find((item) => item.id === cadet.id)
     try {
       const result = await sendJoiningCodeEmail(updated, approvedCadet)
@@ -587,21 +634,32 @@ function OpenNightRosterRow({ family, cadet, night, onChanged }) {
     } catch {
       setCodeEmailStatus('Joining code issued, but the email could not be sent. Contact the parent directly.')
     }
+    setBusy(false)
     onChanged()
   }
   const markAbsent = async () => {
-    setOpenNightAttendance(family.id, cadet.id, { status: 'absent', parentAttended: false, note: '' })
+    if (busy) return
+    setBusy(true)
+    try {
+      await setOpenNightAttendance(family.id, cadet.id, { status: 'absent', parentAttended: false, note: '' })
+    } catch {
+      setBusy(false)
+      setAbsenceEmailStatus('That could not be saved. Check your connection and try again.')
+      onChanged()
+      return
+    }
     try {
       const result = await sendDidNotAttendEmail(family, cadet, night)
       setAbsenceEmailStatus(result.simulated ? 'Non-attendance email prepared. Email sending is simulated locally.' : 'Non-attendance email sent with rebook and withdraw options.')
     } catch {
       setAbsenceEmailStatus('Marked as did not attend, but the email could not be sent. Contact the parent directly.')
     }
+    setBusy(false)
     onChanged()
   }
   return <div className="border-b border-slate-200 p-5 last:border-b-0">
     <div className="flex flex-wrap justify-between gap-3"><div><h3 className="font-semibold text-slate-900">{cadet.fullName || 'Unnamed cadet'}</h3><p className="text-sm text-slate-500">Parent: {family.guardian.fullName || 'Not entered'} · {family.guardian.mobile || family.guardian.email || 'No contact entered'}</p>{family.cadets.length > 1 && <p className="mt-1 text-xs text-[var(--blue)]">Family group of {family.cadets.length} cadets</p>}</div>{cadet.joiningCode && <div className="text-right"><p className="font-mono text-xl font-semibold text-[var(--navy)]">Code {cadet.joiningCode}</p>{cadet.joiningCodeExpiresAt && <p className="text-xs text-slate-500">Use by {new Date(cadet.joiningCodeExpiresAt).toLocaleDateString('en-GB')}</p>}</div>}</div>
-    {!cadet.attendedAt && cadet.openNightAttendanceStatus !== 'absent' && <div className="mt-4 flex flex-wrap gap-2">{cadet.openNightAttendanceStatus !== 'arrived' && <button type="button" onClick={markArrived} className="rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110">Arrived</button>}{cadet.openNightAttendanceStatus === 'arrived' && <span className="rounded-lg border border-[var(--blue)] bg-[var(--navy-soft)] px-5 py-2.5 text-sm font-semibold text-[var(--blue)]">Arrived</span>}<button type="button" onClick={markAbsent} className="rounded-lg border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-100">Did not attend and email parent</button><button type="button" onClick={approve} disabled={cadet.openNightAttendanceStatus !== 'arrived'} className="rounded-lg bg-[var(--green)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40">Wants to proceed - issue code and email parent</button></div>}
+    {!cadet.attendedAt && cadet.openNightAttendanceStatus !== 'absent' && <div className="mt-4 flex flex-wrap gap-2">{cadet.openNightAttendanceStatus !== 'arrived' && <button type="button" onClick={markArrived} disabled={busy} className="rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-50">Arrived</button>}{cadet.openNightAttendanceStatus === 'arrived' && <span className="rounded-lg border border-[var(--blue)] bg-[var(--navy-soft)] px-5 py-2.5 text-sm font-semibold text-[var(--blue)]">Arrived</span>}<button type="button" onClick={markAbsent} disabled={busy} className="rounded-lg border border-red-300 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50">Did not attend and email parent</button><button type="button" onClick={approve} disabled={busy || cadet.openNightAttendanceStatus !== 'arrived'} className="rounded-lg bg-[var(--green)] px-5 py-2.5 text-sm font-semibold text-white hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-40">Wants to proceed - issue code and email parent</button></div>}
     {cadet.attendedAt && <p className="mt-4 rounded-lg bg-[var(--green-soft)] px-4 py-3 text-sm font-semibold text-[var(--green)]">Attendance approved and joining code issued.</p>}
     {cadet.openNightAttendanceStatus === 'absent' && <p className="mt-4 rounded-lg bg-[var(--gold-soft)] px-4 py-3 text-sm font-semibold text-[var(--amber)]">Did not attend. The parent has been emailed to rebook or withdraw.</p>}
     {codeEmailStatus && <p className="mt-3 text-sm font-medium text-[var(--blue)]">{codeEmailStatus}</p>}

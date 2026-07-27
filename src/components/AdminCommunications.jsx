@@ -22,7 +22,7 @@ export default function AdminCommunications() {
     saveEmailTemplates(templates)
     saveKeyDates(dates)
     if (changed) {
-      const affected = changeOpenNightDates(originalDates.openNights, dates.openNights)
+      const affected = await changeOpenNightDates(originalDates.openNights, dates.openNights)
       await Promise.allSettled(affected.map(({ family, cadet, oldDate, newDate }) => sendOpenNightDateChangeEmail(family, cadet, `${oldDate}T19:15:00`, `${newDate}T19:15:00`)))
     }
     setOriginalDates(dates)

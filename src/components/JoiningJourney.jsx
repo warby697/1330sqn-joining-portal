@@ -95,8 +95,13 @@ export default function JoiningJourney({ familyId, cadetId, navigate, previewFam
   }
   const headerSubtitle = stage === 'gate' ? 'Paperwork unlock' : stage === 'welcome' ? 'Attendance confirmed' : stage === 'wizard' ? `${step.form || '3822A'} - Section ${step.section} - ${step.title}` : stage.includes('fee') ? 'Joining fee' : stage.includes('subs') ? 'Set up subs' : stage === 'gift-aid' ? 'Gift Aid declaration' : 'All done'
 
-  if (stage === 'gate') return <PaperworkGate cadet={cadet} onBack={() => navigate(familyRoute)} onUnlock={(joiningCode) => {
-    if (!LOCAL_TEST_MODE && !validateJoiningCode(family.id, cadet.id, joiningCode)) return false
+  if (stage === 'gate') return <PaperworkGate cadet={cadet} onBack={() => navigate(familyRoute)} onUnlock={async (joiningCode) => {
+    if (!LOCAL_TEST_MODE) {
+      let accepted
+      try { accepted = await validateJoiningCode(family.id, cadet.id, joiningCode) }
+      catch { return false }
+      if (!accepted) return false
+    }
     update({ 'meta.joiningCode': joiningCode })
     setStage('welcome')
     return true
@@ -119,6 +124,6 @@ function PaperworkGate({ cadet, onBack, onUnlock }) {
   const [code, setCode] = useState('')
   const [error, setError] = useState('')
   const locked = !LOCAL_TEST_MODE && (!cadet.attendedAt || cadet.paperworkStatus === 'locked')
-  const submit = (event) => { event.preventDefault(); if (!onUnlock(code)) setError('That code is not valid for this cadet.') }
+  const submit = async (event) => { event.preventDefault(); if (!(await onUnlock(code))) setError('That code is not valid for this cadet.') }
   return <div className="min-h-screen"><Header subtitle="Paperwork unlock" /><main className="mx-auto max-w-lg px-5 py-8"><button onClick={onBack} className="mb-4 text-sm font-semibold text-slate-500">← Family dashboard</button><form onSubmit={submit} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Formal joining paperwork</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{cadet.fullName}</h1>{locked ? <div className="mt-5 rounded-xl bg-[var(--gold-soft)] p-4 text-sm text-[var(--amber)]"><p className="font-bold">Paperwork is locked</p><p className="mt-1">A parent and cadet must attend an open night before the joining forms become available.</p></div> : <><p className="mt-3 text-sm text-slate-500">Enter the one-time four-digit code issued after your open night. Known family details will be carried into the form for review.</p><label className="mt-5 block text-sm font-medium text-slate-800">One-time joining code<input inputMode="numeric" maxLength={4} className={inputClass + ' text-center text-xl tracking-[0.35em]'} value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, '')); setError('') }} /></label>{error && <p className="mt-3 text-sm text-red-700">{error}</p>}<button type="submit" className="mt-5 w-full rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white">Unlock paperwork</button></>}</form></main></div>
 }
