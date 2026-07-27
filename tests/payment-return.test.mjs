@@ -7,5 +7,10 @@ test('creates dedicated successful and cancelled payment return URLs', () => {
   const result = paymentReturnUrls('https://joining.example/#/join/family/cadet/token', 'fee', 'BRQ123')
   assert.equal(result.redirectUri, 'https://joining.example/?payment_kind=fee&billing_request_id=BRQ123&payment_outcome=complete#/payment-return')
   assert.equal(result.exitUri, 'https://joining.example/?payment_kind=fee&billing_request_id=BRQ123&payment_outcome=cancelled#/payment-return')
+})
+
+test('never leaks the family access token to GoCardless', () => {
+  const result = paymentReturnUrls('https://joining.example/#/join/family/cadet/token', 'fee', 'BRQ123')
   assert.equal(result.redirectUri.includes('token'), false)
+  assert.equal(result.exitUri.includes('token'), false)
 })

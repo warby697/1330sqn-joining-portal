@@ -1,4 +1,7 @@
 export function paymentReturnUrls(returnUrl, kind, billingRequestId) {
+  // The family access token in the journey hash must NOT be sent to GoCardless,
+  // so the return URL deliberately drops it. The parent's return route (with the
+  // token) is held in sessionStorage instead.
   const build = (outcome) => {
     const url = new URL(returnUrl)
     url.search = ''

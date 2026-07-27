@@ -72,18 +72,17 @@ function PaymentReturnPage({ preview = false }) {
   const params = new URLSearchParams(window.location.search)
   const outcome = preview ? 'complete' : params.get('payment_outcome')
   const kind = preview ? 'fee' : params.get('payment_kind')
-  const billingRequestId = preview ? 'BRQ-PREVIEW' : params.get('billing_request_id')
   const pending = (() => { try { return JSON.parse(sessionStorage.getItem(PENDING_PAYMENT_KEY) || 'null') } catch { return null } })()
+  const route = pending?.returnRoute || ''
 
   useEffect(() => {
-    // Same-tab flow: as soon as we are back from GoCardless, return to the
-    // journey, which resumes the confirm step from sessionStorage.
-    if (preview || outcome !== 'complete' || pending?.billingRequestId !== billingRequestId || !pending?.returnRoute) return
-    window.location.hash = pending.returnRoute
-  }, [billingRequestId, outcome, pending?.billingRequestId, pending?.returnRoute, preview])
+    if (preview || outcome !== 'complete' || !route) return
+    window.location.hash = route
+  }, [outcome, route, preview])
 
   const cancelled = outcome === 'cancelled'
-  return <main className="mx-auto flex min-h-screen max-w-lg items-center px-5 py-12"><section className={`w-full border-2 bg-white p-8 text-center ${cancelled ? 'border-[var(--gold)]' : 'border-[var(--green)]'}`}><div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white ${cancelled ? 'bg-[var(--amber)]' : 'bg-[var(--green)]'}`}>{cancelled ? '!' : '✓'}</div><p className="mt-5 text-xs font-bold uppercase tracking-wide text-[var(--blue)]">{kind === 'subs' ? 'Direct Debit' : 'Joining fee'}</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{cancelled ? 'Setup not completed' : 'Payment step completed'}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{cancelled ? 'Nothing has been charged. Return to your application to try again when ready.' : 'Your application will continue automatically.'}</p></section></main>
+  const goBack = () => { window.location.hash = route || '#/' }
+  return <main className="mx-auto flex min-h-screen max-w-lg items-center px-5 py-12"><section className={`w-full border-2 bg-white p-8 text-center ${cancelled ? 'border-[var(--gold)]' : 'border-[var(--green)]'}`}><div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white ${cancelled ? 'bg-[var(--amber)]' : 'bg-[var(--green)]'}`}>{cancelled ? '!' : '✓'}</div><p className="mt-5 text-xs font-bold uppercase tracking-wide text-[var(--blue)]">{kind === 'subs' ? 'Direct Debit' : 'Joining fee'}</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{cancelled ? 'Setup not completed' : 'Payment step completed'}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{cancelled ? 'Nothing has been charged. Tap below to return to your application and try again when ready.' : 'Tap below to return to your application and finish. It should continue on its own in a moment.'}</p><button type="button" onClick={goBack} className="mt-6 w-full rounded-lg bg-[var(--blue)] px-5 py-3 text-sm font-semibold text-white hover:brightness-110">{cancelled ? 'Return to my application' : 'Continue my application'}</button></section></main>
 }
 
 function SharedJoiningJourney({ familyId, cadetId, accessToken, navigate }) {
