@@ -1,6 +1,5 @@
-// Limited live-test values approved by the user. Change the final prices only in a
-// separate, explicitly approved deployment.
-export const FEE_AMOUNT_PENCE = 100
-export const FEE_LABEL = '£1.00'
-export const SUBS_AMOUNT_PENCE = 100
-export const SUBS_LABEL = '£1.00/month'
+// Live prices. Fee is a one-off taken at signup; subs is the monthly Direct Debit.
+export const FEE_AMOUNT_PENCE = 3000
+export const FEE_LABEL = '£30.00'
+export const SUBS_AMOUNT_PENCE = 1850
+export const SUBS_LABEL = '£18.50/month'
