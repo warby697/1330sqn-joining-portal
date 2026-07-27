@@ -4,6 +4,7 @@ import { getEmailTemplates } from '../lib/communicationSettings'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 import SummaryPreview from './SummaryPreview'
 import { LOCAL_TEST_MODE } from '../lib/testMode'
+import { PARENT_SIGNAL_GROUP_URL as SIGNAL_GROUP_URL, CADET_SIGNAL_GROUP_URL } from '../lib/signalGroups'
 
 // Stashed before we hand off to GoCardless so we can resume the confirm step on return.
 // sessionStorage survives the cross-origin round-trip to GoCardless and back in the same tab;
@@ -381,9 +382,6 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onContinu
     </Card>
   )
 }
-
-const SIGNAL_GROUP_URL = 'https://signal.group/#CjQKIJl8L_m4RIX-eXFqO_wg0W67AFFtSTaSblV85N69sJpuEhA3cQq0MDddoeUX1NK03zwp'
-const CADET_SIGNAL_GROUP_URL = 'https://signal.group/#CjQKIH7uvVYV4_6nkB2_On2y7TGMKyavN9l0x-7fIA2Hu643EhAHIDTmsmZJ_9tAC9_b8Jrt'
 
 export function GiftAidStep({ formData, update, onDone, onBack }) {
   const inheritedAddress = [formData['parent1.address.property'], formData['parent1.address.street'], formData['parent1.address.area'], formData['parent1.address.town'], formData['parent1.address.county'], formData['parent1.address.postcode']].filter(Boolean).join(', ')

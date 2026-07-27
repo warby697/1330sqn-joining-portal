@@ -15,12 +15,13 @@ export const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (ch
 
 const paragraphHtml = (text) => escapeHtml(text).replace(/\n/g, '<br>')
 
-// Split a plain-text template body into paragraphs. Bare URLs are dropped from
-// the visible copy because the layout renders them as real buttons instead.
+// Split a plain-text template body into paragraphs. Bare URLs are removed
+// because the layout renders links as real buttons; a lead-in paragraph that
+// ends with a colon (it was introducing that link) is dropped with it.
 export const bodyToParagraphs = (body) => String(body || '')
   .split(/\n{2,}/)
-  .map((paragraph) => paragraph.trim())
-  .filter(Boolean)
+  .map((paragraph) => paragraph.replace(/\s*https?:\/\/\S+/g, '').replace(/[ \t]+/g, ' ').trim())
+  .filter((paragraph) => paragraph && !paragraph.endsWith(':'))
 
 const button = ({ label, url, primary = true }) => `
   <table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0"><tr><td style="border-radius:8px;background:${primary ? BLUE : '#ffffff'}">

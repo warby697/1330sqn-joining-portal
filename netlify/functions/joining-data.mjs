@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { joiningPortalCollections, joiningPortalDb } from './_firebase-admin.mjs'
+import { renderEmail, bodyToParagraphs } from './_email-layout.mjs'
 
 const json = (body, status = 200) => Response.json(body, { status })
 const hash = (value) => createHash('sha256').update(String(value || '')).digest('hex')
@@ -64,9 +65,9 @@ async function sendReturnLink(db, to, parentName, portalUrl) {
   const values = { parentName: parentName || 'Parent or guardian', portalUrl }
   const fill = (text) => String(text || '').replace(/{{(\w+)}}/g, (_, key) => values[key] || '')
   const subject = fill(template?.subject || 'Return to your 1330 Squadron joining enquiry')
-  const body = fill(template?.body || 'Dear {{parentName}},\n\nUse the secure link below to return to your family joining record:\n\n{{portalUrl}}\n\nIf you did not request this link, you can ignore this email.')
-  const safeBody = body.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[character])).replace(/\n/g, '<br>')
-  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, subject, html: `<div style="font-family:Arial,sans-serif;max-width:680px;margin:auto;color:#172033;line-height:1.6"><p>${safeBody}</p><p>Regards,<br><strong>1330 Squadron Staff</strong></p><p style="font-size:12px;color:#667085">This email address is not monitored. If you need assistance, please contact the Squadron through <a href="https://warringtonaircadets.com/">warringtonaircadets.com</a>.</p></div>` }) })
+  const intro = fill(template?.body || 'Dear {{parentName}},\n\nUse the secure button below to return to your family joining record.\n\nIf you did not request this link, you can ignore this email.')
+  const { html } = renderEmail({ heading: 'Return to your joining enquiry', paragraphs: bodyToParagraphs(intro), cta: { label: 'Open your joining record', url: portalUrl } })
+  const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, subject, html }) })
   if (!response.ok) throw new Error(await response.text())
 }
 
