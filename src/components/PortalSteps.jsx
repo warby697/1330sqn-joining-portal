@@ -208,6 +208,9 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
+  const start = formData['meta.intendedStartDate'] ? new Date(formData['meta.intendedStartDate']) : null
+  const delayedStart = start && !Number.isNaN(start.getTime()) && start.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000
+  const startLabel = delayedStart ? start.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
 
   const startMandate = async () => {
     setLoading(true)
@@ -247,6 +250,7 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
         <h2 className="mt-2 text-2xl font-semibold text-[var(--navy)]">Monthly subs</h2>
         <p className="mt-3 text-3xl font-bold text-[var(--green)]">{SUBS_LABEL}</p>
         <p className="mt-2 text-sm font-medium leading-6 text-slate-700">This is a recurring monthly Direct Debit, separate from the one-off joining fee. It continues each month until you tell us to stop.</p>
+        {delayedStart && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[var(--green)]">Your first payment will not be taken until {startLabel}, when they start. Nothing is collected before then.</p>}
       </div>
       <p className="mb-4 text-sm leading-6 text-slate-600">
         You will be taken to GoCardless's secure page to enter your bank details and authorise the monthly collection.
@@ -294,7 +298,7 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
   )
 }
 
-export function SubsConfirmStep({ billingRequestId, reference, onDone, onContinueUnconfirmed, onRetry }) {
+export function SubsConfirmStep({ billingRequestId, reference, startDate, onDone, onContinueUnconfirmed, onRetry }) {
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
   const [attemptNumber, setAttemptNumber] = useState(0)
@@ -314,7 +318,7 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onContinu
       fetch('/api/gocardless/confirm-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingRequestId, reference }),
+        body: JSON.stringify({ billingRequestId, reference, startDate }),
       })
         .then(async (res) => {
           const data = await res.json()
@@ -334,7 +338,7 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onContinu
     return () => {
       cancelled = true
     }
-  }, [billingRequestId, reference, retryKey])
+  }, [billingRequestId, reference, startDate, retryKey])
 
   if (error) {
     return (
