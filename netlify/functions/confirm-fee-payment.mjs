@@ -1,4 +1,4 @@
-const GC_API = 'https://api.gocardless.com'
+const GC_API = process.env.GOCARDLESS_API || 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
 const BAD_STATUSES = new Set(['failed', 'cancelled', 'charged_back'])
 

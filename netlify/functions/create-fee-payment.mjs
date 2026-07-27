@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { FEE_AMOUNT_PENCE } from '../../src/lib/pricing.js'
 import { paymentReturnUrls } from './_payment-return.mjs'
 
-const GC_API = 'https://api.gocardless.com'
+const GC_API = process.env.GOCARDLESS_API || 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
 
 function gcHeaders(idempotencyKey) {
