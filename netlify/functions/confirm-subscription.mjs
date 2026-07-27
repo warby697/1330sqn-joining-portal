@@ -24,7 +24,7 @@ export default async (req) => {
     })
   }
 
-  const { billingRequestId, reference } = await req.json()
+  const { billingRequestId, reference, startDate } = await req.json()
   if (!billingRequestId || !reference) {
     return new Response(JSON.stringify({ error: 'Missing billingRequestId or reference' }), {
       status: 400,
@@ -64,20 +64,28 @@ export default async (req) => {
     })
   }
 
+  const subscription = {
+    amount: SUBS_AMOUNT_PENCE,
+    currency: 'GBP',
+    interval: 1,
+    interval_unit: 'monthly',
+    name: '1330 Squadron monthly subs',
+    metadata: { reference },
+    links: { mandate: mandateId },
+  }
+  // Delay the first collection until the cadet actually starts, so paperwork
+  // completed months before the intake does not trigger monthly payments in the
+  // meantime. Only set a start date comfortably in the future; if the start is
+  // imminent or past, let GoCardless begin on its earliest valid date.
+  const start = startDate ? new Date(startDate) : null
+  if (start && !Number.isNaN(start.getTime()) && start.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) {
+    subscription.start_date = start.toISOString().slice(0, 10)
+  }
+
   const subRes = await fetch(`${GC_API}/subscriptions`, {
     method: 'POST',
     headers: gcHeaders(`sub-${billingRequestId}`),
-    body: JSON.stringify({
-      subscriptions: {
-        amount: SUBS_AMOUNT_PENCE,
-        currency: 'GBP',
-        interval: 1,
-        interval_unit: 'monthly',
-        name: '1330 Squadron monthly subs',
-        metadata: { reference },
-        links: { mandate: mandateId },
-      },
-    }),
+    body: JSON.stringify({ subscriptions: subscription }),
   })
   const sub = await subRes.json()
   if (!subRes.ok) {
