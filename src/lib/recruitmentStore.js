@@ -403,22 +403,6 @@ export function markAttended(familyId, cadetId) {
   })
 }
 
-export function resetOpenNightAttendance(familyId, cadetId) {
-  return updateCadet(familyId, cadetId, (cadet, family, data) => {
-    cadet.attendedAt = null
-    cadet.parentAttendedOpenNight = false
-    cadet.openNightAttendanceStatus = 'booked'
-    cadet.openNightStaffNote = ''
-    cadet.status = 'open_night_booked'
-    cadet.paperworkStatus = 'locked'
-    cadet.joiningCode = null
-    cadet.joiningCodeExpiresAt = null
-    cadet.joiningCodeUsedAt = null
-    cadet.intendedStartDate = null
-    data.messages = data.messages.filter((message) => !(message.familyId === familyId && message.cadetId === cadetId && message.kind === 'paperwork_unlocked'))
-  })
-}
-
 export async function validateJoiningCode(familyId, cadetId, joiningCode) {
   let accepted = false
   const family = await updateCadet(familyId, cadetId, (cadet) => {
