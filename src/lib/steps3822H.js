@@ -21,6 +21,14 @@ export const steps3822H = [
     otherFieldId: 'health.conditionsOther',
   },
   {
+    id: 'h-condition-details',
+    form: '3822H',
+    section: '2b/2c',
+    title: 'Tell us more about each condition',
+    subtitle: 'The paper form caps at two conditions before you need a whole separate form — here you can just add another.',
+    kind: 'condition-details',
+  },
+  {
     id: 'h-ehc',
     form: '3822H',
     section: '2a',
@@ -29,14 +37,6 @@ export const steps3822H = [
       { type: 'yn', id: 'health.ehc', required: true, label: 'Does your child have an Education, Health and Care Plan?' },
       { type: 'yn', id: 'health.ehcShareCopy', label: 'Willing to share a copy with the unit?', showIf: (d) => d['health.ehc'] === true },
     ],
-  },
-  {
-    id: 'h-condition-details',
-    form: '3822H',
-    section: '2b/2c',
-    title: 'Tell us more about each condition',
-    subtitle: 'The paper form caps at two conditions before you need a whole separate form — here you can just add another.',
-    kind: 'condition-details',
   },
   {
     id: 'h-allergies',
@@ -60,7 +60,6 @@ export const steps3822H = [
     form: '3822H',
     section: '5',
     title: 'Declaration & signature',
-    subtitle: 'The paper form prints both a parent and a cadet signature block and leaves it to you to pick the right one — since we already know the date of birth, we just show the one that applies.',
     kind: 'declaration',
   },
 ]

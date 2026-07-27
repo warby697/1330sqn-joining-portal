@@ -1,5 +1,5 @@
 const KEY = 'joining-portal-admin-emails'
-const DEFAULT_EMAILS = ['1330squadronops@gmail.com']
+export const DEFAULT_EMAILS = ['1330squadronops@gmail.com']
 
 export function getAdminEmails() {
   try {
@@ -13,5 +13,12 @@ export function getAdminEmails() {
 }
 
 export function setAdminEmails(emails) {
-  localStorage.setItem(KEY, JSON.stringify(emails.filter((e) => e.trim())))
+  const cleaned = emails.filter((e) => e.trim())
+  localStorage.setItem(KEY, JSON.stringify(cleaned))
+  saveSharedSetting('adminEmails', cleaned).catch((error) => console.error('Could not sync recipient addresses:', error))
 }
+
+export function hydrateAdminEmails(emails) {
+  if (Array.isArray(emails) && emails.length) localStorage.setItem(KEY, JSON.stringify(emails))
+}
+import { saveSharedSetting } from './sharedRecruitmentStore.js'

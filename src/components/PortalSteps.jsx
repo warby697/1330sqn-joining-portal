@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buildReference, nameParts } from '../lib/reference'
-import { getAdminEmails } from '../lib/adminEmails'
+import { getEmailTemplates } from '../lib/communicationSettings'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 import SummaryPreview from './SummaryPreview'
+import { LOCAL_TEST_MODE } from '../lib/testMode'
 
 // Stashed before we hand off to GoCardless so we can resume the confirm step on return.
 // sessionStorage survives the cross-origin round-trip to GoCardless and back in the same tab;
@@ -18,13 +19,14 @@ function Eyebrow({ children }) {
   return <p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)] mb-2">{children}</p>
 }
 
-export function FeeStep({ formData, onSkip, onBack }) {
+export function FeeStep({ formData, onStarted, onSkip, onBack }) {
   const ref = buildReference(formData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
 
   const startPayment = async () => {
+    const paymentTab = window.open('about:blank', '_blank')
     setLoading(true)
     setError(null)
     try {
@@ -36,14 +38,18 @@ export function FeeStep({ formData, onSkip, onBack }) {
           givenName: nameParts(formData['parent1.fullName']).forename,
           familyName: nameParts(formData['parent1.fullName']).surname,
           email: formData['parent1.primaryEmail'] || '',
-          returnUrl: window.location.origin + window.location.pathname,
+          returnUrl: window.location.origin + window.location.pathname + window.location.hash,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the payment')
-      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'fee', billingRequestId: data.billingRequestId }))
-      window.location.href = data.authorisationUrl
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'fee', billingRequestId: data.billingRequestId, returnRoute: window.location.hash }))
+      onStarted(data.billingRequestId)
+      if (data.alreadyAuthorised) paymentTab?.close()
+      else if (paymentTab) paymentTab.location.href = data.authorisationUrl
+      else window.location.href = data.authorisationUrl
     } catch (e) {
+      paymentTab?.close()
       setError(e.message)
       setLoading(false)
     }
@@ -51,11 +57,14 @@ export function FeeStep({ formData, onSkip, onBack }) {
 
   return (
     <Card>
-      <Eyebrow>One-off payment</Eyebrow>
-      <h2 className="text-lg font-semibold text-slate-900 mb-2">Joining fee — {FEE_LABEL}</h2>
-      <p className="text-sm text-slate-600 mb-4">
-        Covers the cadet's initial kit issue and Cadet Portal setup. Paid instantly straight from your bank via
-        GoCardless — no card details needed.
+      <div className="mb-5 rounded-xl bg-[var(--navy)] p-5 text-white">
+        <p className="text-xs font-bold uppercase tracking-wide text-[var(--sky)]">Payment 1 of 2</p>
+        <h2 className="mt-2 text-2xl font-semibold">Joining fee</h2>
+        <p className="mt-3 text-3xl font-bold">{FEE_LABEL}</p>
+        <p className="mt-2 text-sm leading-6 text-white/80">You will be charged this amount once. This is not a recurring payment.</p>
+      </div>
+      <p className="mb-4 text-sm leading-6 text-slate-600">
+        The joining fee covers the cadet's initial kit issue and account setup. Payment is made securely from your bank through GoCardless. No card details are required.
       </p>
       <div className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-mono text-slate-700 mb-4">
         Reference: <strong>{ref}</strong>
@@ -100,14 +109,16 @@ export function FeeStep({ formData, onSkip, onBack }) {
   )
 }
 
-const CONFIRM_MAX_ATTEMPTS = 13
+const CONFIRM_MAX_ATTEMPTS = 73
 const CONFIRM_RETRY_DELAY_MS = 2500
 
-export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
+export function FeeConfirmStep({ billingRequestId, onDone, onContinueUnconfirmed, onRetry }) {
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
   const [attemptNumber, setAttemptNumber] = useState(0)
   const [retryKey, setRetryKey] = useState(0)
+  const onDoneRef = useRef(onDone)
+  useEffect(() => { onDoneRef.current = onDone }, [onDone])
 
   useEffect(() => {
     let cancelled = false
@@ -126,7 +137,7 @@ export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
         .then(async (res) => {
           const data = await res.json()
           if (!res.ok) throw new Error(data.message || data.error || 'Could not confirm the payment yet')
-          if (!cancelled) onDone()
+          if (!cancelled) onDoneRef.current(data)
         })
         .catch((e) => {
           if (cancelled) return
@@ -167,7 +178,7 @@ export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
             I've already completed this payment at my bank — I don't need to pay again.
           </label>
           <button
-            onClick={onDone}
+            onClick={onContinueUnconfirmed}
             disabled={!ack}
             className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
@@ -186,18 +197,19 @@ export function FeeConfirmStep({ billingRequestId, onDone, onRetry }) {
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Checking payment" aria-valuemin="0" aria-valuemax={CONFIRM_MAX_ATTEMPTS} aria-valuenow={attemptNumber}>
         <div className="h-full rounded-full bg-[var(--blue)] transition-all duration-500" style={{ width: `${Math.max(8, (attemptNumber / CONFIRM_MAX_ATTEMPTS) * 100)}%` }} />
       </div>
-      <p className="mt-2 text-xs text-slate-500">This can take around 30 seconds on a slower connection. Please keep this page open.</p>
+      <p className="mt-2 text-xs text-slate-500">Complete the payment in the bank window or app. This page will continue automatically and can wait for up to three minutes.</p>
     </Card>
   )
 }
 
-export function SubsStep({ formData, onSkip, onBack }) {
+export function SubsStep({ formData, onStarted, onSkip, onBack }) {
   const ref = buildReference(formData)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
 
   const startMandate = async () => {
+    const paymentTab = window.open('about:blank', '_blank')
     setLoading(true)
     setError(null)
     try {
@@ -209,14 +221,18 @@ export function SubsStep({ formData, onSkip, onBack }) {
           givenName: nameParts(formData['parent1.fullName']).forename,
           familyName: nameParts(formData['parent1.fullName']).surname,
           email: formData['parent1.primaryEmail'] || '',
-          returnUrl: window.location.origin + window.location.pathname,
+          returnUrl: window.location.origin + window.location.pathname + window.location.hash,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the Direct Debit setup')
-      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'subs', billingRequestId: data.billingRequestId }))
-      window.location.href = data.authorisationUrl
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'subs', billingRequestId: data.billingRequestId, returnRoute: window.location.hash }))
+      onStarted(data.billingRequestId)
+      if (data.alreadyAuthorised) paymentTab?.close()
+      else if (paymentTab) paymentTab.location.href = data.authorisationUrl
+      else window.location.href = data.authorisationUrl
     } catch (e) {
+      paymentTab?.close()
       setError(e.message)
       setLoading(false)
     }
@@ -224,11 +240,14 @@ export function SubsStep({ formData, onSkip, onBack }) {
 
   return (
     <Card>
-      <Eyebrow>Ongoing subs</Eyebrow>
-      <h2 className="text-lg font-semibold text-slate-900 mb-2">Set up monthly subs — {SUBS_LABEL}</h2>
-      <p className="text-sm text-slate-600 mb-4">
-        Collected by Direct Debit via GoCardless — the same reference follows through so subs and this form stay
-        linked in our records. You'll be taken to GoCardless's own secure page to enter your bank details.
+      <div className="mb-5 rounded-xl border-2 border-[var(--green)] bg-[var(--green-soft)] p-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-[var(--green)]">Payment 2 of 2</p>
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--navy)]">Monthly subs</h2>
+        <p className="mt-3 text-3xl font-bold text-[var(--green)]">{SUBS_LABEL}</p>
+        <p className="mt-2 text-sm font-medium leading-6 text-slate-700">This sets up a recurring monthly Direct Debit. It is separate from the one-off joining fee.</p>
+      </div>
+      <p className="mb-4 text-sm leading-6 text-slate-600">
+        You will be taken to GoCardless's secure page to enter your bank details and authorise the monthly collection.
       </p>
       <div className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-mono text-slate-700 mb-4">
         Mandate reference: <strong>{ref}</strong>
@@ -246,7 +265,7 @@ export function SubsStep({ formData, onSkip, onBack }) {
           disabled={loading}
           className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
         >
-          {loading ? 'One moment…' : 'Set up Direct Debit via GoCardless'}
+          {loading ? 'One moment…' : `Set up ${SUBS_LABEL} Direct Debit`}
         </button>
       </div>
       {error && (
@@ -273,11 +292,13 @@ export function SubsStep({ formData, onSkip, onBack }) {
   )
 }
 
-export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }) {
+export function SubsConfirmStep({ billingRequestId, reference, onDone, onContinueUnconfirmed, onRetry }) {
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
   const [attemptNumber, setAttemptNumber] = useState(0)
   const [retryKey, setRetryKey] = useState(0)
+  const onDoneRef = useRef(onDone)
+  useEffect(() => { onDoneRef.current = onDone }, [onDone])
 
   useEffect(() => {
     let cancelled = false
@@ -296,7 +317,7 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }
         .then(async (res) => {
           const data = await res.json()
           if (!res.ok) throw new Error(data.message || data.error || 'Could not confirm the Direct Debit yet')
-          if (!cancelled) onDone()
+          if (!cancelled) onDoneRef.current(data)
         })
         .catch((e) => {
           if (cancelled) return
@@ -337,7 +358,7 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }
             I've already set this up at my bank — I don't need to do it again.
           </label>
           <button
-            onClick={onDone}
+            onClick={onContinueUnconfirmed}
             disabled={!ack}
             className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
@@ -356,7 +377,7 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onRetry }
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Checking Direct Debit" aria-valuemin="0" aria-valuemax={CONFIRM_MAX_ATTEMPTS} aria-valuenow={attemptNumber}>
         <div className="h-full rounded-full bg-[var(--blue)] transition-all duration-500" style={{ width: `${Math.max(8, (attemptNumber / CONFIRM_MAX_ATTEMPTS) * 100)}%` }} />
       </div>
-      <p className="mt-2 text-xs text-slate-500">This can take around 30 seconds on a slower connection. Please keep this page open.</p>
+      <p className="mt-2 text-xs text-slate-500">Complete the setup in the bank window or app. This page will continue automatically and can wait for up to three minutes.</p>
     </Card>
   )
 }
@@ -368,14 +389,15 @@ export function GiftAidStep({ formData, update, onDone, onBack }) {
   const inheritedAddress = [formData['parent1.address.property'], formData['parent1.address.street'], formData['parent1.address.area'], formData['parent1.address.town'], formData['parent1.address.county'], formData['parent1.address.postcode']].filter(Boolean).join(', ')
   const donorName = formData['giftAid.donorName'] ?? formData['parent1.fullName'] ?? ''
   const donorAddress = formData['giftAid.address'] ?? inheritedAddress
+  const giftScope = formData['giftAid.scope'] ?? 'past-and-future'
   const [error, setError] = useState(null)
   const set = (key, value) => update({ [key]: value })
   const submit = () => {
-    if (!donorName.trim() || !donorAddress.trim() || !formData['giftAid.scope'] || !formData['giftAid.confirmed'] || !String(formData['giftAid.signature'] || '').trim()) {
+    if (!LOCAL_TEST_MODE && (!donorName.trim() || !donorAddress.trim() || !giftScope || !formData['giftAid.confirmed'] || !String(formData['giftAid.signature'] || '').trim())) {
       setError('Please complete the donor details, choose which gifts the declaration covers, confirm the taxpayer statement, and type your signature.')
       return
     }
-    update({ 'giftAid.donorName': donorName, 'giftAid.address': donorAddress, 'giftAid.status': 'declared', 'giftAid.date': new Date().toISOString().slice(0, 10) })
+    update({ 'giftAid.donorName': donorName, 'giftAid.address': donorAddress, 'giftAid.scope': giftScope, 'giftAid.status': 'declared', 'giftAid.date': new Date().toISOString().slice(0, 10) })
     onDone()
   }
   const choices = [
@@ -390,16 +412,16 @@ export function GiftAidStep({ formData, update, onDone, onBack }) {
     <div className="space-y-4">
       <label className="block text-sm font-medium text-slate-800">Donor's full name *<input className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" value={donorName} onChange={(e) => set('giftAid.donorName', e.target.value)} /></label>
       <label className="block text-sm font-medium text-slate-800">Home address and postcode *<textarea className="mt-1.5 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2.5" value={donorAddress} onChange={(e) => set('giftAid.address', e.target.value)} /></label>
-      <fieldset><legend className="text-sm font-medium text-slate-800 mb-2">Please treat as Gift Aid donations: *</legend><div className="space-y-2 text-sm text-slate-700">{choices.map(([value, label]) => <label key={value} className="flex items-start gap-2"><input type="radio" name="gift-aid-scope" className="mt-1" checked={formData['giftAid.scope'] === value} onChange={() => set('giftAid.scope', value)} />{label}</label>)}</div></fieldset>
+      <fieldset><legend className="text-sm font-medium text-slate-800 mb-2">Please treat as Gift Aid donations: *</legend><div className="space-y-2 text-sm text-slate-700">{choices.map(([value, label]) => <label key={value} className="flex items-start gap-2"><input type="radio" name="gift-aid-scope" className="mt-1" checked={giftScope === value} onChange={() => set('giftAid.scope', value)} />{label}</label>)}</div></fieldset>
       <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-sm text-slate-700"><input type="checkbox" className="mt-1" checked={formData['giftAid.confirmed'] === true} onChange={(e) => set('giftAid.confirmed', e.target.checked)} />I confirm I have paid or will pay enough UK Income Tax and/or Capital Gains Tax in each tax year to cover the Gift Aid reclaimed by all charities and CASCs I donate to. I understand that I am responsible for any difference and that 1330 Squadron will reclaim 25p for every £1 I give.</label>
-      <label className="block text-sm font-medium text-slate-800">Type your full name to sign *<input className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" value={formData['giftAid.signature'] || ''} onChange={(e) => set('giftAid.signature', e.target.value)} /></label>
+      <label className="block text-sm font-medium text-slate-800">Type your full name to sign *<input className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-2xl tracking-wide" style={{ fontFamily: '"Segoe Script", "Bradley Hand", "Brush Script MT", cursive' }} autoComplete="off" placeholder="Type your name to confirm and sign" value={formData['giftAid.signature'] || ''} onChange={(e) => set('giftAid.signature', e.target.value)} /></label>
       {error && <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</p>}
       <div className="flex flex-wrap gap-3"><button onClick={onBack} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600">Back</button><button onClick={() => { update({ 'giftAid.status': 'skipped' }); onDone() }} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700">Not eligible / skip</button><button onClick={submit} className="flex-1 rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white">Submit declaration</button></div>
     </div>
   </Card>
 }
 
-export function DoneStep({ formData }) {
+export function DoneStep({ formData, onComplete, onBackToGiftAid, nextCadetName = '' }) {
   const [emailStatus, setEmailStatus] = useState('sending')
   const [emailError, setEmailError] = useState(null)
   const [parentSignalOpened, setParentSignalOpened] = useState(false)
@@ -407,7 +429,24 @@ export function DoneStep({ formData }) {
   const [parentSignalConfirmed, setParentSignalConfirmed] = useState(false)
   const [cadetSignalConfirmed, setCadetSignalConfirmed] = useState(false)
   const [uniformConfirmed, setUniformConfirmed] = useState(false)
+  const [finishing, setFinishing] = useState(false)
+  const [finishError, setFinishError] = useState('')
   const allNextStepsConfirmed = parentSignalConfirmed && cadetSignalConfirmed && uniformConfirmed
+  const readyToFinish = allNextStepsConfirmed && emailStatus === 'sent'
+  const finish = async () => {
+    setFinishing(true)
+    setFinishError('')
+    const template = getEmailTemplates().find((item) => item.id === 'joining_complete')
+    if (!['5173', '5190'].includes(window.location.port)) {
+      try { await fetch('/.netlify/functions/send-joining-complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to: formData['parent1.primaryEmail'], parentName: formData['parent1.fullName'], cadetName: formData['cadet.fullName'], startDate: formData['meta.intendedStartDate'], template }) }) } catch { /* form is complete even if the courtesy email fails */ }
+    }
+    try {
+      await onComplete()
+    } catch {
+      setFinishing(false)
+      setFinishError('We could not save the completed status to the Squadron system. Your form remains on this device. Please try again.')
+    }
+  }
 
   const sendEmail = () => {
     setEmailStatus('sending')
@@ -415,7 +454,7 @@ export function DoneStep({ formData }) {
     fetch('/api/send-joining-form', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ formData, recipients: getAdminEmails() }),
+      body: JSON.stringify({ formData }),
     })
       .then(async (res) => {
         const data = await res.json()
@@ -437,7 +476,7 @@ export function DoneStep({ formData }) {
     <div>
       <div className="rounded-2xl bg-[var(--green-soft)] border border-[var(--green)]/30 px-6 py-5 mb-6 text-center">
         <p className="text-lg font-semibold text-[var(--green)] mb-1">All done — welcome to 1330 Squadron</p>
-        <p className="text-sm text-slate-600 mb-3">Nothing is stored in this portal — it's cleared automatically.</p>
+        <p className="text-sm text-slate-600 mb-3">The completed joining forms are emailed to the authorised recipients and are not retained in the recruitment portal. Your basic recruitment record remains available to you and Squadron staff.</p>
         <div className="text-sm text-slate-700 space-y-2">
           {formData['parent1.primaryEmail'] && (
             <p>
@@ -462,6 +501,11 @@ export function DoneStep({ formData }) {
       </div>
 
       <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-3">Next steps</p>
+
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border border-slate-200 bg-white px-4 py-3 text-sm">
+        <span className="text-slate-600">Gift Aid: <strong className="text-slate-800">{formData['giftAid.status'] === 'declared' ? 'Declaration completed' : 'Not declared'}</strong></span>
+        <button type="button" onClick={onBackToGiftAid} className="font-semibold text-[var(--blue)] underline">Back to Gift Aid</button>
+      </div>
 
       <div className="mb-5">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-[var(--green)]">
@@ -532,13 +576,16 @@ export function DoneStep({ formData }) {
         </label>
       </div>
 
-      <div className={'mt-5 rounded-2xl border px-6 py-5 text-center transition ' + (allNextStepsConfirmed ? 'border-[var(--green)]/30 bg-[var(--green-soft)]' : 'border-slate-300 bg-slate-100')}>
+      <div className={'mt-5 rounded-2xl border px-6 py-5 text-center transition ' + (readyToFinish ? 'border-[var(--green)]/30 bg-[var(--green-soft)]' : 'border-slate-300 bg-slate-100')}>
         <p className="text-sm font-semibold text-slate-600 mb-1">5. That’s it</p>
-        <p className={'text-lg font-semibold ' + (allNextStepsConfirmed ? 'text-[var(--green)]' : 'text-slate-700')}>All done.</p>
+        <p className={'text-lg font-semibold ' + (readyToFinish ? 'text-[var(--green)]' : 'text-slate-700')}>All done.</p>
         <p className="mt-1 text-sm text-slate-600">We’ll see “Cadet {formData['cadet.fullName'] || 'your cadet'}” on Monday and Thursday at 6.30pm.</p>
         <p className="mt-3 text-sm font-medium text-slate-700">Please remember they will need a notepad and pen, and a water bottle.</p>
-        <p className="mt-3 text-sm font-semibold text-slate-700">You can now close this window.</p>
+        <p className="mt-3 text-sm font-semibold text-slate-700">{nextCadetName ? `Next, you will complete a separate form for ${nextCadetName}. Parent and guardian details will already be filled in for checking.` : 'You can now close this window.'}</p>
         {!allNextStepsConfirmed && <p className="mt-2 text-xs font-medium text-slate-500">Complete the three confirmation boxes above to finish.</p>}
+        {allNextStepsConfirmed && emailStatus !== 'sent' && <p className="mt-2 text-xs font-medium text-slate-500">The joining form must be emailed successfully before this record can be completed.</p>}
+        {finishError && <p className="mt-3 rounded-lg bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700">{finishError}</p>}
+        {readyToFinish && <button type="button" disabled={finishing} onClick={finish} className="mt-5 w-full rounded-lg bg-[var(--green)] px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">{finishing ? 'Finishing...' : nextCadetName ? `Continue with ${nextCadetName}` : 'Return to the joining portal'}</button>}
       </div>
     </div>
   )

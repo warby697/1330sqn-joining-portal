@@ -74,7 +74,8 @@ export default function SummaryPreview({ formData }) {
   const age = (() => {
     const dob = formData['cadet.dob']
     if (!dob) return null
-    const d = new Date(dob)
+    const uk = String(dob).match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+    const d = uk ? new Date(Number(uk[3]), Number(uk[2]) - 1, Number(uk[1])) : new Date(dob)
     const now = new Date()
     let a = now.getFullYear() - d.getFullYear()
     if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a--

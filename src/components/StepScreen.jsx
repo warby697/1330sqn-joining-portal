@@ -2,6 +2,7 @@ import FieldRenderer from './FieldRenderer'
 import ConditionDetails from './ConditionDetails'
 import Allergies from './Allergies'
 import Declaration from './Declaration'
+import { LOCAL_TEST_MODE } from '../lib/testMode'
 
 function isAnswered(field, formData) {
   const v = formData[field.id]
@@ -17,6 +18,10 @@ function fieldRequired(field, formData) {
 }
 
 const filled = (v) => v !== undefined && v !== null && String(v).trim() !== ''
+const displayDob = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value
+}
 
 export default function StepScreen({ step, formData, update }) {
   const onChange = (id, value) => {
@@ -35,7 +40,7 @@ export default function StepScreen({ step, formData, update }) {
       <div className="rounded-xl bg-[var(--navy-soft)] px-5 py-4">
         <p className="text-sm text-slate-700">
           <span className="font-semibold">{formData['cadet.fullName'] || 'Cadet'}</span>
-          {formData['cadet.dob'] && <span className="text-slate-500"> · born {formData['cadet.dob']}</span>}
+          {formData['cadet.dob'] && <span className="text-slate-500"> · born {displayDob(formData['cadet.dob'])}</span>}
         </p>
         <p className="text-xs text-slate-500 mt-1">Carried over from the form you already filled in — no need to retype it.</p>
       </div>
@@ -94,6 +99,7 @@ export default function StepScreen({ step, formData, update }) {
 // Also covers the custom `kind` screens (declaration, condition-details), which have no
 // `fields` array and would otherwise skip validation entirely.
 export function stepIncompleteReason(step, formData) {
+  if (LOCAL_TEST_MODE) return null
   if (step.kind === 'declaration') {
     const sig = formData['health.signature'] || {}
     if (!(filled(sig.forename) && filled(sig.surname) && filled(sig.signature))) {
@@ -124,6 +130,7 @@ export function stepIncompleteReason(step, formData) {
 }
 
 export function stepBlockedReason(step, formData) {
+  if (LOCAL_TEST_MODE) return null
   const gateField = step.fields?.find((f) => f.gate)
   if (gateField && formData[gateField.id] === false) {
     return 'You must have parental responsibility for this cadet to submit the form.'

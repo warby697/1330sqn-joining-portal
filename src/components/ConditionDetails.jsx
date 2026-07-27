@@ -105,7 +105,7 @@ export default function ConditionDetails({ formData, update }) {
               <span className="block text-xs font-medium text-slate-600 mb-1.5">Medication</span>
               <div className="space-y-2">
                 {(d.medications || []).map((m, idx) => (
-                  <div key={idx} className="grid grid-cols-3 gap-2">
+                  <div key={idx} className="grid gap-2 sm:grid-cols-3">
                     <input
                       className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
                       placeholder="Name"
@@ -114,14 +114,14 @@ export default function ConditionDetails({ formData, update }) {
                     />
                     <input
                       className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
-                      placeholder="Dosage & frequency"
+                      placeholder="Dosage and frequency"
                       value={m.dosage}
                       onChange={(e) => updateMedication(key, idx, 'dosage', e.target.value)}
                     />
                     <div className="flex gap-1.5">
                       <input
                         className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm"
-                        placeholder="Storage"
+                        placeholder="Where is it stored?"
                         value={m.storage}
                         onChange={(e) => updateMedication(key, idx, 'storage', e.target.value)}
                       />

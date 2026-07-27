@@ -41,12 +41,27 @@ export default async (req) => {
     })
   }
 
-  const mandateId = br.billing_requests?.links?.mandate
+  const mandateId = br.billing_requests?.mandate_request?.links?.mandate
   if (!mandateId) {
     return new Response(
       JSON.stringify({ error: 'pending', message: 'The Direct Debit mandate is not ready yet — it may still be processing, or the setup may have been cancelled.' }),
       { status: 409, headers: { 'Content-Type': 'application/json' } }
     )
+  }
+
+  const existingRes = await fetch(`${GC_API}/subscriptions?mandate=${encodeURIComponent(mandateId)}&limit=100`, { headers: gcHeaders() })
+  const existing = await existingRes.json()
+  if (!existingRes.ok) {
+    return new Response(JSON.stringify({ error: existing.error?.message || 'Could not check the existing subscription' }), {
+      status: existingRes.status,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  const existingSubscription = existing.subscriptions?.find((item) => item.status !== 'cancelled' && item.metadata?.reference === reference)
+  if (existingSubscription) {
+    return new Response(JSON.stringify({ mandateId, subscriptionId: existingSubscription.id, status: existingSubscription.status, existing: true }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
   const subRes = await fetch(`${GC_API}/subscriptions`, {
@@ -56,6 +71,7 @@ export default async (req) => {
       subscriptions: {
         amount: SUBS_AMOUNT_PENCE,
         currency: 'GBP',
+        interval: 1,
         interval_unit: 'monthly',
         name: '1330 Squadron monthly subs',
         metadata: { reference },
@@ -71,7 +87,7 @@ export default async (req) => {
     })
   }
 
-  return new Response(JSON.stringify({ mandateId, subscriptionId: sub.subscriptions.id }), {
+  return new Response(JSON.stringify({ mandateId, subscriptionId: sub.subscriptions.id, status: sub.subscriptions.status }), {
     headers: { 'Content-Type': 'application/json' },
   })
 }
