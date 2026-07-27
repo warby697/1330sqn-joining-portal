@@ -248,10 +248,14 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
           <span className="rounded-full bg-[var(--green)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Repeats every month</span>
         </div>
         <h2 className="mt-2 text-2xl font-semibold text-[var(--navy)]">Monthly subs</h2>
-        <p className="mt-3 text-3xl font-bold text-[var(--green)]">{SUBS_LABEL}</p>
+        <p className="mt-3 text-3xl font-bold text-[var(--green)]">{SUBS_LABEL}{delayedStart && <span className="block text-sm font-medium text-slate-500">starting {startLabel}</span>}</p>
         <p className="mt-2 text-sm font-medium leading-6 text-slate-700">This is a recurring monthly Direct Debit, separate from the one-off joining fee. It continues each month until you tell us to stop.</p>
-        {delayedStart && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-[var(--green)]">Your first payment will not be taken until {startLabel}, when they start. Nothing is collected before then.</p>}
       </div>
+      {delayedStart && <div className="mb-5 rounded-2xl border-4 border-[var(--green)] bg-[var(--green-soft)] p-5 text-center">
+        <p className="text-sm font-bold uppercase tracking-wide text-[var(--green)]">No money will be taken today</p>
+        <p className="mt-2 text-3xl font-extrabold leading-tight text-[var(--navy)]">Your first payment is<br />{startLabel}</p>
+        <p className="mt-3 text-sm font-semibold leading-6 text-slate-800">Setting up the Direct Debit now does <strong>not</strong> take any payment. Nothing leaves your account until <strong>{startLabel}</strong>, when they start. You will <strong>not</strong> be charged before then.</p>
+      </div>}
       <p className="mb-4 text-sm leading-6 text-slate-600">
         You will be taken to GoCardless's secure page to enter your bank details and authorise the monthly collection.
       </p>
@@ -259,6 +263,7 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
         Mandate reference: <strong>{ref}</strong>
       </div>
       {error && <p className="mb-4 rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-700">{error}</p>}
+      {delayedStart && <p className="mb-3 text-center text-sm font-bold text-[var(--green)]">Reminder: no payment will be taken until {startLabel}.</p>}
       <div className="flex gap-3">
         <button
           onClick={onBack}
@@ -271,7 +276,7 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
           disabled={loading}
           className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
         >
-          {loading ? 'One moment…' : `Set up ${SUBS_LABEL} Direct Debit`}
+          {loading ? 'One moment…' : delayedStart ? `Set up Direct Debit (first payment ${startLabel})` : `Set up ${SUBS_LABEL} Direct Debit`}
         </button>
       </div>
       {error && (
