@@ -17,6 +17,10 @@ function fieldRequired(field, formData) {
 }
 
 const filled = (v) => v !== undefined && v !== null && String(v).trim() !== ''
+const displayDob = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : value
+}
 
 export default function StepScreen({ step, formData, update }) {
   const onChange = (id, value) => {
@@ -35,9 +39,9 @@ export default function StepScreen({ step, formData, update }) {
       <div className="rounded-xl bg-[var(--navy-soft)] px-5 py-4">
         <p className="text-sm text-slate-700">
           <span className="font-semibold">{formData['cadet.fullName'] || 'Cadet'}</span>
-          {formData['cadet.dob'] && <span className="text-slate-500"> · born {formData['cadet.dob']}</span>}
+          {formData['cadet.dob'] && <span className="text-slate-500"> · born {displayDob(formData['cadet.dob'])}</span>}
         </p>
-        <p className="text-xs text-slate-500 mt-1">Carried over from the form you already filled in — no need to retype it.</p>
+        <p className="text-xs text-slate-500 mt-1">Carried over from the form you already filled in - no need to retype it.</p>
       </div>
     )
   }

@@ -1,4 +1,4 @@
-const GC_API = 'https://api.gocardless.com'
+const GC_API = process.env.GOCARDLESS_API || 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
 const BAD_STATUSES = new Set(['failed', 'cancelled', 'charged_back'])
 
@@ -38,10 +38,10 @@ export default async (req) => {
     })
   }
 
-  const paymentId = br.billing_requests?.links?.payment
+  const paymentId = br.billing_requests?.payment_request?.links?.payment
   if (!paymentId) {
     return new Response(
-      JSON.stringify({ error: 'pending', message: 'The payment is not ready yet — it may still be processing, or it may have been cancelled.' }),
+      JSON.stringify({ error: 'pending', message: 'The payment is not ready yet - it may still be processing, or it may have been cancelled.' }),
       { status: 409, headers: { 'Content-Type': 'application/json' } }
     )
   }

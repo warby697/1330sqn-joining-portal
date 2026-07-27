@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { getAdminEmails, setAdminEmails } from '../lib/adminEmails'
 import { getPin, setPin as saveSharedPin } from '../lib/pin'
+import { changeSharedStaffPin, rememberStaffPin, validateSharedStaffPin } from '../lib/sharedRecruitmentStore'
 
-function PinGate({ onUnlock }) {
+export function PinGate({ onUnlock, onBack }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    if (pin !== getPin()) {
+    try {
+      await validateSharedStaffPin(pin)
+      onUnlock(pin)
+    } catch {
       setError('Incorrect code.')
-      return
     }
-    onUnlock()
   }
 
   return (
@@ -38,23 +40,18 @@ function PinGate({ onUnlock }) {
         >
           Continue
         </button>
-        <a href="#" className="mt-4 inline-block text-sm text-slate-500 hover:underline">
-          ← Back to the joining form
-        </a>
+        <button type="button" onClick={onBack} className="mt-4 inline-block text-sm text-slate-500 hover:underline">Back to the public page</button>
       </form>
     </div>
   )
 }
 
-export default function AdminSettings() {
-  const [unlocked, setUnlocked] = useState(false)
+export function AdminSettingsPanel() {
   const [emails, setEmails] = useState(getAdminEmails())
   const [saved, setSaved] = useState(false)
   const [pin, setPinField] = useState(getPin())
   const [pinError, setPinError] = useState('')
   const [pinSaved, setPinSaved] = useState(false)
-
-  if (!unlocked) return <PinGate onUnlock={() => setUnlocked(true)} />
 
   const update = (idx, value) => {
     const next = [...emails]
@@ -72,29 +69,30 @@ export default function AdminSettings() {
     setSaved(true)
   }
 
-  const savePin = () => {
+  const savePin = async () => {
     if (!/^\d{4}$/.test(pin)) {
       setPinError('Code must be exactly 4 digits.')
       setPinSaved(false)
       return
     }
-    saveSharedPin(pin)
-    setPinError('')
-    setPinSaved(true)
+    try {
+      await changeSharedStaffPin(pin)
+      rememberStaffPin(pin)
+      saveSharedPin(pin)
+      setPinError('')
+      setPinSaved(true)
+    } catch (error) {
+      setPinError(error.message || 'The shared access code could not be changed.')
+      setPinSaved(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="bg-[var(--navy)] text-white px-5 py-4">
-        <p className="text-[15px] font-semibold">Admin — Joining Portal settings</p>
-        <p className="text-xs text-white/70">Not part of the parent-facing flow</p>
-      </header>
-      <main className="mx-auto max-w-lg px-5 py-6">
+    <div className="mt-6 max-w-2xl">
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 mb-6">
           <h2 className="text-base font-semibold text-slate-900 mb-1">Access code</h2>
           <p className="text-sm text-slate-500 mb-5">
-            This one code gates both the sign-in screen for parents and this staff admin panel. Changing it here
-            updates both immediately — no code change or redeploy needed.
+            This code protects the staff recruitment panel. Changing it here takes effect for every staff device.
           </p>
           <div className="flex items-center gap-3 mb-3">
             <input
@@ -114,16 +112,16 @@ export default function AdminSettings() {
             >
               Save
             </button>
-            {pinSaved && <span className="text-sm text-[var(--green)] font-medium">Saved — new code is {pin}</span>}
+            {pinSaved && <span className="text-sm text-[var(--green)] font-medium">Saved - new code is {pin}</span>}
           </div>
           {pinError && <p className="text-sm text-[var(--amber)]">{pinError}</p>}
         </div>
 
         <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6">
-          <h2 className="text-base font-semibold text-slate-900 mb-1">Where completed forms get sent</h2>
+          <h2 className="text-base font-semibold text-slate-900 mb-1">To email address</h2>
           <p className="text-sm text-slate-500 mb-5">
             Every completed joining form is emailed to every address below. Update this list if a staff member's
-            Bader inbox changes — no code change or redeploy needed.
+            Bader inbox changes - no code change or redeploy needed.
           </p>
 
           <div className="space-y-2 mb-3">
@@ -161,15 +159,17 @@ export default function AdminSettings() {
             {saved && <span className="text-sm text-[var(--green)] font-medium">Saved</span>}
           </div>
 
-          <p className="mt-6 rounded-lg bg-[var(--gold-soft)] px-3 py-2 text-xs text-[var(--amber)]">
-            Stored in this browser's local storage — settings won't follow you to a different device or browser.
+          <p className="mt-6 rounded-lg bg-[var(--green-soft)] px-3 py-2 text-xs text-[var(--green)]">
+            Saved to the shared joining database and available to every authorised staff device.
           </p>
         </div>
 
-        <a href="#" className="mt-4 inline-block text-sm text-slate-500 hover:underline">
-          ← Back to the joining form
-        </a>
-      </main>
     </div>
   )
+}
+
+export default function AdminSettings() {
+  const [unlocked, setUnlocked] = useState(false)
+  if (!unlocked) return <PinGate onUnlock={() => setUnlocked(true)} onBack={() => { window.location.hash = '#/' }} />
+  return <div className="min-h-screen bg-slate-100 px-5 py-6"><AdminSettingsPanel /></div>
 }

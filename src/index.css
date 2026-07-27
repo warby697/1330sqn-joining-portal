@@ -1,9 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --navy: #122647;
-  --navy-soft: #EAF0F5;
-  --blue: #2F6FAD;
+  /* 1330 Squadron website palette (warringtonaircadets.com) */
+  --navy: #003857;
+  --navy-deep: #003047;
+  --navy-soft: #E7F3F8;
+  --blue: #006399;
+  --sky: #6BBDE6;
   --green: #3F8B5C;
   --green-soft: #EAF3EC;
   --gold: #C9A227;
@@ -11,9 +14,18 @@
   --amber: #A9702D;
 }
 
+/* Leave room above/below a focused field so the mobile keyboard does not
+   cover it when it is scrolled into view. */
+input, select, textarea {
+  scroll-margin-top: 5rem;
+  scroll-margin-bottom: 8rem;
+}
+
 body {
   margin: 0;
-  background: #F1F5F9;
+  background: #F1F3F4;
+  color: #143247;
+  font-family: "Guggenheim Sans", "Avenir Next", Avenir, "Segoe UI", sans-serif;
 }
 
 /* iOS Safari auto-zooms the page when a focused field renders below 16px */

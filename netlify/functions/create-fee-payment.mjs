@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { FEE_AMOUNT_PENCE } from '../../src/lib/pricing.js'
+import { paymentReturnUrls } from './_payment-return.mjs'
 
-const GC_API = 'https://api.gocardless.com'
+const GC_API = process.env.GOCARDLESS_API || 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
 
 function gcHeaders(idempotencyKey) {
@@ -43,7 +44,7 @@ export default async (req) => {
           amount: FEE_AMOUNT_PENCE,
           currency: 'GBP',
           scheme: 'faster_payments',
-          description: `1330 Squadron joining fee — ${reference}`,
+          description: `1330 Squadron joining fee - ${reference}`,
         },
         metadata: { reference },
       },
@@ -55,7 +56,7 @@ export default async (req) => {
   if (brRes.ok) {
     billingRequestId = br.billing_requests.id
   } else if (conflict?.links?.conflicting_resource_id) {
-    // Same person retrying the same day's fee (e.g. they backed out and clicked Pay again) —
+    // Same person retrying the same day's fee (e.g. they backed out and clicked Pay again) -
     // reuse the existing billing request rather than erroring, and get them a fresh hosted flow below.
     billingRequestId = conflict.links.conflicting_resource_id
   } else {
@@ -65,13 +66,23 @@ export default async (req) => {
     })
   }
 
+  if (!brRes.ok) {
+    const existingRes = await fetch(`${GC_API}/billing_requests/${billingRequestId}`, { headers: gcHeaders() })
+    const existing = await existingRes.json()
+    if (existingRes.ok && existing.billing_requests?.payment_request?.links?.payment) {
+      return new Response(JSON.stringify({ billingRequestId, alreadyAuthorised: true }), { headers: { 'Content-Type': 'application/json' } })
+    }
+  }
+
+  const { redirectUri, exitUri } = paymentReturnUrls(returnUrl, 'fee', billingRequestId)
+
   const flowRes = await fetch(`${GC_API}/billing_request_flows`, {
     method: 'POST',
     headers: gcHeaders(`brf-fee-${billingRequestId}-${randomUUID()}`),
     body: JSON.stringify({
       billing_request_flows: {
-        redirect_uri: returnUrl,
-        exit_uri: returnUrl,
+        redirect_uri: redirectUri,
+        exit_uri: exitUri,
         prefilled_customer: {
           given_name: givenName || undefined,
           family_name: familyName || undefined,

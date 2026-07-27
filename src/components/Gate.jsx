@@ -18,7 +18,7 @@ export default function Gate({ onEnter }) {
       return
     }
     if (pin !== getPin()) {
-      setError('That code doesn\'t match — check the notice at the squadron HQ.')
+      setError('That code doesn\'t match - check the notice at the squadron HQ.')
       return
     }
     onEnter(forename.trim(), surname.trim(), pin)
@@ -32,7 +32,7 @@ export default function Gate({ onEnter }) {
           alt="1330 Squadron RAF Air Cadets crest"
           className="mx-auto h-36 w-auto object-contain drop-shadow-[0_8px_16px_rgba(0,0,0,0.35)] mb-3"
         />
-        <h1 className="text-xl font-semibold">1330 Squadron — Joining Portal</h1>
+        <h1 className="text-xl font-semibold">1330 Squadron - Joining Portal</h1>
         <p className="text-white/70 text-sm mt-1">Scanned from the QR code at the squadron HQ</p>
       </div>
       <div className="flex-1 flex items-start justify-center px-5 -mt-6">
@@ -43,9 +43,9 @@ export default function Gate({ onEnter }) {
           </p>
 
           <div className="rounded-lg bg-[var(--navy-soft)] px-3.5 py-3 mb-5">
-            <p className="text-sm font-medium text-[var(--navy)]">Takes about 15–20 minutes.</p>
+            <p className="text-sm font-medium text-[var(--navy)]">Takes about 15-20 minutes.</p>
             <p className="text-xs text-slate-600 mt-1">
-              Please complete it in one sitting once you start — progress isn't saved if you close the page. You
+              Please complete it in one sitting once you start - progress isn't saved if you close the page. You
               have 48 hours from now before this code stops working.
             </p>
           </div>

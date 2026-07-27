@@ -12,6 +12,14 @@ function Label({ field, formData }) {
 const inputClass =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[15px] text-slate-900 outline-none transition focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20'
 
+const formatDob = (value) => {
+  const text = String(value || '')
+  const iso = text.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`
+  const digits = text.replace(/\D/g, '').slice(0, 8)
+  return [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean).join('/')
+}
+
 export default function FieldRenderer({ field, value, onChange, formData }) {
   if (field.type === 'notice') {
     const text = field.textFor ? field.textFor(formData || {}) : field.text
@@ -27,7 +35,7 @@ export default function FieldRenderer({ field, value, onChange, formData }) {
     return (
       <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
         <span className="block text-xs font-medium text-slate-500">{field.label}</span>
-        <span className="block text-[15px] font-semibold text-slate-800 mt-0.5">{val || '—'}</span>
+        <span className="block text-[15px] font-semibold text-slate-800 mt-0.5">{val || '-'}</span>
         {field.help && <span className="block text-xs text-slate-500 mt-1">{field.help}</span>}
       </div>
     )
@@ -45,16 +53,19 @@ export default function FieldRenderer({ field, value, onChange, formData }) {
   }
 
   if (field.type === 'text') {
+    const isSignature = field.id === 'signature.signature'
     return (
       <div className={field.half ? 'sm:col-span-1' : 'sm:col-span-2'}>
         <Label field={field} formData={formData} />
         <input
           id={field.id}
-          className={inputClass}
+          className={inputClass + (isSignature ? ' text-2xl tracking-wide' : '')}
+          style={isSignature ? { fontFamily: '"Segoe Script", "Bradley Hand", "Brush Script MT", cursive' } : undefined}
           type="text"
+          autoComplete={isSignature ? 'off' : undefined}
           value={value || ''}
           onChange={(e) => onChange(field.id, e.target.value)}
-          placeholder={field.placeholder}
+          placeholder={isSignature ? 'Type your name to confirm and sign' : field.placeholder}
         />
         {field.otherValue && value === field.otherValue && field.otherField && (
           <div className="mt-3">
@@ -80,6 +91,12 @@ export default function FieldRenderer({ field, value, onChange, formData }) {
   }
 
   if (field.type === 'date') {
+    if (field.id === 'cadet.dob') return (
+      <div className={field.half ? 'sm:col-span-1' : 'sm:col-span-2'}>
+        <Label field={field} />
+        <input id={field.id} className={inputClass} type="text" inputMode="numeric" autoComplete="bday" maxLength={10} placeholder="DD/MM/YYYY" value={formatDob(value)} onChange={(e) => onChange(field.id, formatDob(e.target.value))} />
+      </div>
+    )
     return (
       <div className={field.half ? 'sm:col-span-1' : 'sm:col-span-2'}>
         <Label field={field} />

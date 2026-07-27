@@ -12,6 +12,7 @@ import {
   SEVERITY_OPTIONS,
 } from '../../src/lib/options.js'
 import { FEE_LABEL, SUBS_LABEL } from '../../src/lib/pricing.js'
+import { joiningPortalCollections, joiningPortalDb } from './_firebase-admin.mjs'
 
 const PAGE_WIDTH = 595.28 // A4 portrait, points
 const PAGE_HEIGHT = 841.89
@@ -27,8 +28,13 @@ const GREY = rgb(0.42, 0.45, 0.5)
 const LIGHT = rgb(0.9, 0.91, 0.93)
 const WHITE = rgb(1, 1, 1)
 
-const PAYMENT_LABELS = { paid: 'Paid', active: 'Active', unconfirmed: 'NOT CONFIRMED — check GoCardless' }
-const SENDER_DISPLAY_NAME = '1330 Squadron RAF Air Cadets'
+const PAYMENT_LABELS = { paid: 'Paid', active: 'Active', unconfirmed: 'NOT CONFIRMED - check GoCardless' }
+const SENDER_DISPLAY_NAME = '1330 Squadron Staff'
+const DEFAULT_ADMIN_EMAILS = ['1330squadronops@gmail.com']
+
+export function chooseAdminEmails(envEmails = [], sharedEmails = []) {
+  return envEmails.length ? envEmails : sharedEmails.length ? sharedEmails : DEFAULT_ADMIN_EMAILS
+}
 
 // Parents shouldn't see (or reply to) the raw sending address - just a friendly name. Works
 // whether RESEND_FROM is a bare address or already "Name <address>" formatted.
@@ -92,7 +98,7 @@ async function buildFormPdf(formData, reference) {
     const labelX = MARGIN + indent
     const valueX = MARGIN + LABEL_WIDTH + GUTTER
     const valueMaxWidth = usableWidth - LABEL_WIDTH - GUTTER
-    const text = value === undefined || value === null || value === '' ? '—' : String(value)
+    const text = value === undefined || value === null || value === '' ? '-' : String(value)
     const valueFont = opts.bold ? bold : font
     const labelLines = wrapText(label, font, 8.5, LABEL_WIDTH - indent)
     const valueLines = wrapText(text, valueFont, 9.5, valueMaxWidth)
@@ -125,7 +131,7 @@ async function buildFormPdf(formData, reference) {
   // Header band
   page.drawRectangle({ x: 0, y: PAGE_HEIGHT - 76, width: PAGE_WIDTH, height: 76, color: NAVY })
   page.drawText('1330 Squadron RAF Air Cadets', { x: MARGIN, y: PAGE_HEIGHT - 40, size: 16, font: bold, color: WHITE })
-  page.drawText('Joining Portal — Consent & Health Submission (Forms 3822A / 3822H)', {
+  page.drawText('Joining Portal - Consent & Health Submission (Forms 3822A / 3822H)', {
     x: MARGIN, y: PAGE_HEIGHT - 58, size: 9.5, font, color: rgb(0.78, 0.83, 0.9),
   })
   y = PAGE_HEIGHT - 76 - 24
@@ -170,7 +176,7 @@ async function buildFormPdf(formData, reference) {
   y -= 6
 
   // --- 2a: Next of kin - parent/guardian 1 ---
-  drawSectionHeader('2a. Next of kin — parent/guardian 1')
+  drawSectionHeader('2a. Next of kin - parent/guardian 1')
   drawRow('Parental responsibility confirmed', yn(formData['parent1.parentalResponsibility']))
   drawRow('Title', formData['parent1.title'])
   drawRow('Full name', formData['parent1.fullName'])
@@ -202,10 +208,10 @@ async function buildFormPdf(formData, reference) {
   drawSectionHeader('3. Consent to participate')
   const consentRows = [
     ['Photo/video use to promote the squadron', 'consent.photo'],
-    ['Flying — air experience (light aircraft & gliders)', 'consent.flyingLight'],
-    ['Flying — solo gliding/powered aircraft', 'consent.flyingSolo'],
-    ['Flying — passenger transport aircraft & helicopters', 'consent.flyingTransport'],
-    ['Flying — other incl. high-performance jets', 'consent.flyingOther'],
+    ['Flying - air experience (light aircraft & gliders)', 'consent.flyingLight'],
+    ['Flying - solo gliding/powered aircraft', 'consent.flyingSolo'],
+    ['Flying - passenger transport aircraft & helicopters', 'consent.flyingTransport'],
+    ['Flying - other incl. high-performance jets', 'consent.flyingOther'],
     ['Marksmanship training', 'consent.marksmanship'],
     ['Strenuous physical activity', 'consent.physical'],
     ['Lower-risk unit activities', 'consent.lowerRisk'],
@@ -285,7 +291,7 @@ async function buildFormPdf(formData, reference) {
       conditions.forEach((key) => {
         const label = labelOf(CONDITION_OPTIONS, key)
         const d = details[key] || {}
-        drawRow(label, labelOf(SEVERITY_OPTIONS, d.severity) || '—', { bold: true })
+        drawRow(label, labelOf(SEVERITY_OPTIONS, d.severity) || '-', { bold: true })
         drawRow('Sought healthcare advice?', yn(d.soughtAdvice), { indent: 12 })
         drawRow('Day-to-day impact', d.normal, { indent: 12 })
         drawRow('Impact during strenuous activity', d.strenuous, { indent: 12 })
@@ -295,7 +301,7 @@ async function buildFormPdf(formData, reference) {
           drawRow('Medication', 'None listed', { indent: 12 })
         } else {
           meds.forEach((m, i) => {
-            drawRow(`Medication ${i + 1}`, [m.name, m.dosage, m.storage ? `stored: ${m.storage}` : null].filter(Boolean).join(' · ') || '—', { indent: 12 })
+            drawRow(`Medication ${i + 1}`, [m.name, m.dosage, m.storage ? `stored: ${m.storage}` : null].filter(Boolean).join(' · ') || '-', { indent: 12 })
           })
         }
       })
@@ -317,7 +323,7 @@ async function buildFormPdf(formData, reference) {
       allergies.forEach((key) => {
         const label = labelOf(ALLERGY_OPTIONS, key)
         const d = allergyDetails[key] || {}
-        drawRow(label, [labelOf(SEVERITY_OPTIONS, d.severity), d.autoInjector ? 'auto-injector used' : null].filter(Boolean).join(', ') || '—')
+        drawRow(label, [labelOf(SEVERITY_OPTIONS, d.severity), d.autoInjector ? 'auto-injector used' : null].filter(Boolean).join(', ') || '-')
       })
       if (allergies.includes('other')) drawRow('Other allergy detail', formData['health.allergiesOther'], { indent: 12 })
     }
@@ -338,7 +344,7 @@ async function buildFormPdf(formData, reference) {
   const pages = doc.getPages()
   pages.forEach((p, i) => {
     p.drawLine({ start: { x: MARGIN, y: 40 }, end: { x: PAGE_WIDTH - MARGIN, y: 40 }, thickness: 0.4, color: LIGHT })
-    p.drawText('OFFICIAL (SENSITIVE) — PERSONAL (when completed)', { x: MARGIN, y: 28, size: 7.5, font, color: GREY })
+    p.drawText('OFFICIAL (SENSITIVE) - PERSONAL (when completed)', { x: MARGIN, y: 28, size: 7.5, font, color: GREY })
     const label = `Page ${i + 1} of ${pages.length}`
     const w = font.widthOfTextAtSize(label, 7.5)
     p.drawText(label, { x: PAGE_WIDTH - MARGIN - w, y: 28, size: 7.5, font, color: GREY })
@@ -368,7 +374,7 @@ export default async (req) => {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), { status: 400 })
   }
 
-  const { formData, recipients } = body
+  const { formData } = body
   if (!formData) {
     return new Response(JSON.stringify({ error: 'Missing formData' }), {
       status: 400,
@@ -376,16 +382,20 @@ export default async (req) => {
     })
   }
 
-  // Where completed forms get emailed. Precedence:
-  //  1. ADMIN_EMAILS env var (set in Netlify) — central control, wins on every device so
-  //     staff can redirect submissions without a code change or worrying which browser was used.
-  //  2. The address(es) chosen in the in-app admin panel (sent by the client).
-  //  3. A safe default, so a submission can never silently go nowhere.
-  const DEFAULT_ADMIN_EMAILS = ['1330squadronops@gmail.com']
+  // Resolve recipients on the server. The public browser must not be allowed to choose
+  // where a completed form containing personal data is sent. An environment override wins,
+  // followed by the shared staff setting and finally the Squadron Ops fallback.
   const parseList = (v) => String(v || '').split(',').map((s) => s.trim()).filter(Boolean)
   const envEmails = parseList(process.env.ADMIN_EMAILS)
-  const clientEmails = Array.isArray(recipients) ? recipients.map((s) => String(s).trim()).filter(Boolean) : []
-  const toList = envEmails.length ? envEmails : clientEmails.length ? clientEmails : DEFAULT_ADMIN_EMAILS
+  let sharedEmails = []
+  try {
+    const setting = await joiningPortalDb().collection(joiningPortalCollections.settings).doc('adminEmails').get()
+    const value = setting.exists ? setting.get('value') : []
+    sharedEmails = Array.isArray(value) ? value.map((email) => String(email).trim()).filter(Boolean) : []
+  } catch (error) {
+    console.error('Could not load shared joining-form recipients:', error)
+  }
+  const toList = chooseAdminEmails(envEmails, sharedEmails)
 
   const { surname, forename } = cadetNameParts(formData)
   const reference = buildReference(formData)

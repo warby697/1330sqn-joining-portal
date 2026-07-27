@@ -1,224 +1,141 @@
-import { useEffect, useMemo, useState } from 'react'
-import Header from './components/Header'
-import Gate from './components/Gate'
-import AdminSettings from './components/AdminSettings'
-import ProgressBar from './components/ProgressBar'
-import StepScreen, { stepIncompleteReason, stepBlockedReason } from './components/StepScreen'
-import { FeeStep, FeeConfirmStep, SubsStep, SubsConfirmStep, GiftAidStep, DoneStep, PENDING_PAYMENT_KEY } from './components/PortalSteps'
-import { steps3822A } from './lib/steps3822A'
-import { steps3822H } from './lib/steps3822H'
-import { buildReference } from './lib/reference'
+import { useEffect, useState } from 'react'
+import { PinGate } from './components/AdminSettings'
+import JoiningJourney from './components/JoiningJourney'
+import { FamilyDashboard, InterestForm, RecruitmentAdmin, RecruitmentHome } from './components/RecruitmentPages'
+import { hydrateSharedFamily, hydrateStaffRecruitmentData } from './lib/recruitmentStore'
+import { currentStaffPin, forgetStaffPin, redeemJoiningCode, rememberStaffPin } from './lib/sharedRecruitmentStore'
+import { PENDING_PAYMENT_KEY } from './components/PortalSteps'
 
-const SESSION_KEY = 'joining-portal:session'
+const STAFF_SESSION_KEY = 'joining-portal-staff-unlocked'
 
-function loadSession() {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY)
-    if (!raw) return null
-    const session = JSON.parse(raw)
-    const cadetName = String(session?.formData?.['cadet.fullName'] || '')
-    if (/\b(test|example)\b/i.test(cadetName)) {
-      sessionStorage.removeItem(SESSION_KEY)
-      return null
-    }
-    return session
-  } catch {
-    return null
-  }
+function readRoute() {
+  const value = window.location.hash.replace(/^#\/?/, '')
+  const [page = '', ...parts] = value.split('/').filter(Boolean)
+  return { page, parts }
 }
 
-const initialSession = loadSession()
-
-const routeFromHash = () => window.location.hash === '#admin' ? 'admin' : 'app'
-
 export default function App() {
-  const [route, setRoute] = useState(routeFromHash())
-  const [stage, setStage] = useState(initialSession?.stage || 'gate')
-  const [wizardIndex, setWizardIndex] = useState(initialSession?.wizardIndex || 0)
-  const [formData, setFormData] = useState(initialSession?.formData || {})
-  const [pendingBillingRequestId, setPendingBillingRequestId] = useState(null)
-  const [blocked, setBlocked] = useState(null)
+  const [route, setRoute] = useState(readRoute)
+  const navigate = (destination) => {
+    window.location.hash = destination ? `#/${destination}` : '#/'
+  }
 
-  // Coming back from a GoCardless hosted flow (fee payment or subs mandate) — the whole page
-  // reloads, so we recover the billing request id we stashed in sessionStorage before the
-  // redirect (GoCardless doesn't reliably put it in the return URL) and jump straight to the
-  // matching confirm step. Falls back to a URL param if one is present.
   useEffect(() => {
-    let pending = null
+    const change = () => setRoute(readRoute())
+    window.addEventListener('hashchange', change)
+    return () => window.removeEventListener('hashchange', change)
+  }, [])
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [route.page, route.parts])
+
+  // On touch devices the on-screen keyboard covers the lower half of the page.
+  // When a field gains focus, bring it (and the button below it) into view.
+  useEffect(() => {
+    if (!window.matchMedia?.('(pointer: coarse)').matches) return
+    const onFocusIn = (event) => {
+      const field = event.target
+      if (!field.matches?.('input, select, textarea')) return
+      setTimeout(() => field.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [])
+
+  if (route.page === 'interest') return <InterestForm navigate={navigate} />
+  if (import.meta.env.DEV && route.page === 'family-preview') return <FamilyDashboard familyId="preview-family" navigate={navigate} previewFamily={previewFamily} />
+  if (import.meta.env.DEV && route.page === 'joining-preview') return <JoiningJourney familyId="preview-family" cadetId="preview-cadet" navigate={navigate} previewFamily={joiningPreviewFamily} previewStage="fee" />
+  if (import.meta.env.DEV && route.page === 'payment-return-preview') return <PaymentReturnPage preview />
+  if (route.page === 'payment-return') return <PaymentReturnPage />
+  if (route.page === 'family') return <FamilyDashboard familyId={route.parts[0]} accessToken={route.parts[1] || ''} navigate={navigate} />
+  if (route.page === 'staff') return <StaffArea navigate={navigate} />
+  if (route.page === 'settings' || route.page === 'admin') return <StaffArea navigate={navigate} initialWorkspace="settings" />
+  if (route.page === 'join' && route.parts.length >= 2) return <SharedJoiningJourney familyId={route.parts[0]} cadetId={route.parts[1]} accessToken={route.parts[2] || ''} navigate={navigate} />
+  if (route.page === 'join') return <JoiningCodeAccess navigate={navigate} />
+  return <RecruitmentHome navigate={navigate} />
+}
+
+const previewFamily = {
+  id: 'preview-family',
+  guardian: { fullName: 'Paul Warburton', email: 'warby697@gmail.com', mobile: '07868306736', verifiedAt: new Date().toISOString() },
+  cadets: [{ id: 'preview-cadet', fullName: 'Ben Warburton', status: 'eligible', schoolName: 'St Gregs School', openNightId: '', paperworkStatus: 'locked' }],
+}
+
+const joiningPreviewFamily = {
+  id: 'preview-family',
+  guardian: { fullName: 'Alex Smith', email: 'alex@example.com', mobile: '07123 456789', verifiedAt: new Date().toISOString() },
+  cadets: [{ id: 'preview-cadet', fullName: 'Jamie Smith', dob: '2013-04-12', status: 'paperwork_in_progress', paperworkStatus: 'in_progress', attendedAt: new Date().toISOString(), intendedStartDate: '2026-10-01' }],
+}
+
+function PaymentReturnPage({ preview = false }) {
+  const params = new URLSearchParams(window.location.search)
+  const outcome = preview ? 'complete' : params.get('payment_outcome')
+  const kind = preview ? 'fee' : params.get('payment_kind')
+  const billingRequestId = preview ? 'BRQ-PREVIEW' : params.get('billing_request_id')
+  const pending = (() => { try { return JSON.parse(sessionStorage.getItem(PENDING_PAYMENT_KEY) || 'null') } catch { return null } })()
+
+  useEffect(() => {
+    // Same-tab flow: as soon as we are back from GoCardless, return to the
+    // journey, which resumes the confirm step from sessionStorage.
+    if (preview || outcome !== 'complete' || pending?.billingRequestId !== billingRequestId || !pending?.returnRoute) return
+    window.location.hash = pending.returnRoute
+  }, [billingRequestId, outcome, pending?.billingRequestId, pending?.returnRoute, preview])
+
+  const cancelled = outcome === 'cancelled'
+  return <main className="mx-auto flex min-h-screen max-w-lg items-center px-5 py-12"><section className={`w-full border-2 bg-white p-8 text-center ${cancelled ? 'border-[var(--gold)]' : 'border-[var(--green)]'}`}><div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white ${cancelled ? 'bg-[var(--amber)]' : 'bg-[var(--green)]'}`}>{cancelled ? '!' : '✓'}</div><p className="mt-5 text-xs font-bold uppercase tracking-wide text-[var(--blue)]">{kind === 'subs' ? 'Direct Debit' : 'Joining fee'}</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{cancelled ? 'Setup not completed' : 'Payment step completed'}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{cancelled ? 'Nothing has been charged. Return to your application to try again when ready.' : 'Your application will continue automatically.'}</p></section></main>
+}
+
+function SharedJoiningJourney({ familyId, cadetId, accessToken, navigate }) {
+  const [ready, setReady] = useState(!accessToken)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    if (!accessToken) return
+    hydrateSharedFamily(familyId, accessToken).then(() => setReady(true)).catch(() => setError('This secure joining link is invalid or has expired.'))
+  }, [accessToken, familyId])
+  if (error) return <main className="mx-auto max-w-lg px-5 py-20 text-center"><p className="font-semibold text-red-700">{error}</p><button type="button" onClick={() => navigate('join')} className="mt-4 text-sm font-semibold text-[var(--blue)]">Enter the joining code again</button></main>
+  if (!ready) return <main className="mx-auto max-w-lg px-5 py-20 text-center"><p className="font-semibold text-[var(--blue)]">Loading the joining paperwork...</p></main>
+  return <JoiningJourney familyId={familyId} cadetId={cadetId} navigate={navigate} />
+}
+
+function StaffArea({ navigate, initialWorkspace = 'pipeline' }) {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(STAFF_SESSION_KEY) === 'yes' && Boolean(currentStaffPin()))
+  const [loading, setLoading] = useState(() => sessionStorage.getItem(STAFF_SESSION_KEY) === 'yes' && Boolean(currentStaffPin()))
+  const [loadError, setLoadError] = useState('')
+  useEffect(() => {
+    if (!unlocked) return
+    setLoading(true)
+    hydrateStaffRecruitmentData().then(() => setLoadError('')).catch(() => setLoadError('Could not load the shared recruitment database.')).finally(() => setLoading(false))
+  }, [unlocked])
+  const unlock = (pin) => {
+    rememberStaffPin(pin)
+    sessionStorage.setItem(STAFF_SESSION_KEY, 'yes')
+    setUnlocked(true)
+  }
+  if (!unlocked) return <PinGate onBack={() => navigate('')} onUnlock={unlock} />
+  if (loading) return <main className="mx-auto max-w-lg px-5 py-24 text-center"><p className="font-semibold text-[var(--blue)]">Loading the shared recruitment records...</p></main>
+  if (loadError) return <main className="mx-auto max-w-lg px-5 py-24 text-center"><p className="font-semibold text-red-700">{loadError}</p><button type="button" className="mt-4 text-sm font-semibold text-[var(--blue)]" onClick={() => { setLoadError(''); setUnlocked(false); sessionStorage.removeItem(STAFF_SESSION_KEY); forgetStaffPin() }}>Return to staff login</button></main>
+  return <RecruitmentAdmin navigate={navigate} initialWorkspace={initialWorkspace} onLogout={() => { sessionStorage.removeItem(STAFF_SESSION_KEY); forgetStaffPin(); setUnlocked(false); navigate('') }} />
+}
+
+function JoiningCodeAccess({ navigate }) {
+  const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [error, setError] = useState('')
+  const find = async (event) => {
+    event.preventDefault()
+    setError('')
     try {
-      const raw = sessionStorage.getItem(PENDING_PAYMENT_KEY)
-      if (raw) pending = JSON.parse(raw)
-    } catch {
-      pending = null
-    }
-    const urlBillingRequestId = new URLSearchParams(window.location.search).get('billing_request_id')
-    const billingRequestId = pending?.billingRequestId || urlBillingRequestId
-    if (!billingRequestId) return
-
-    setPendingBillingRequestId(billingRequestId)
-    if (pending?.kind === 'subs') setStage('subs-confirming')
-    else if (pending?.kind === 'fee') setStage('fee-confirming')
-    else setStage((current) => (current === 'subs' ? 'subs-confirming' : 'fee-confirming'))
-
-    sessionStorage.removeItem(PENDING_PAYMENT_KEY)
-    window.history.replaceState({}, '', window.location.pathname + window.location.hash)
-  }, [])
-
-  useEffect(() => {
-    if (route !== 'app') return
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ stage, wizardIndex, formData }))
-  }, [route, stage, wizardIndex, formData])
-
-  useEffect(() => {
-    if (stage === 'done') sessionStorage.removeItem(SESSION_KEY)
-  }, [stage])
-
-  useEffect(() => {
-    const onHashChange = () => setRoute(routeFromHash())
-    window.addEventListener('hashchange', onHashChange)
-    return () => window.removeEventListener('hashchange', onHashChange)
-  }, [])
-
-  const steps = useMemo(
-    () => (formData['cadet.hasMedical'] === true ? [...steps3822A, ...steps3822H] : steps3822A),
-    [formData['cadet.hasMedical']]
-  )
-
-  if (route === 'admin') return <AdminSettings />
-
-  const update = (patch) => {
-    setFormData((prev) => ({ ...prev, ...patch }))
-    setBlocked(null)
-  }
-
-  const step = steps[wizardIndex]
-
-  const handleEnter = (forename, surname, pin) => {
-    setFormData((f) => ({ ...f, 'cadet.fullName': `${forename} ${surname}`.trim(), 'meta.pin': pin }))
-    setStage('wizard')
-  }
-
-  const goNext = () => {
-    const reason = stepBlockedReason(step, formData)
-    if (reason) {
-      setBlocked(reason)
-      return
-    }
-    const incomplete = stepIncompleteReason(step, formData)
-    if (incomplete) {
-      setBlocked(incomplete)
-      return
-    }
-    if (wizardIndex < steps.length - 1) {
-      setWizardIndex((i) => i + 1)
-    } else {
-      setStage('fee')
+      const result = await redeemJoiningCode(email, code)
+      const sessionKey = `joining-portal:paperwork:${result.cadetId}`
+      let existingSession = {}
+      try { existingSession = JSON.parse(sessionStorage.getItem(sessionKey) || '{}') } catch { existingSession = {} }
+      sessionStorage.setItem(sessionKey, JSON.stringify({ ...existingSession, stage: 'welcome', familyToken: result.token }))
+      navigate(`join/${result.family.id}/${result.cadetId}/${result.token}`)
+    } catch (accessError) {
+      setError(accessError.message || 'No unlocked paperwork was found for those details.')
     }
   }
-
-  const goBack = () => {
-    setBlocked(null)
-    if (wizardIndex > 0) setWizardIndex((i) => i - 1)
-  }
-
-  const headerSubtitle =
-    stage === 'gate'
-      ? 'Joining Portal'
-      : stage === 'wizard'
-      ? `${step.form || '3822A'} · Section ${step.section} — ${step.title}`
-      : stage === 'fee' || stage === 'fee-confirming'
-      ? 'Joining fee'
-      : stage === 'subs' || stage === 'subs-confirming'
-      ? 'Set up subs'
-      : stage === 'gift-aid'
-      ? 'Gift Aid declaration'
-      : 'All done'
-
-  if (stage === 'gate') return <Gate onEnter={handleEnter} />
-
-  return (
-    <div className="min-h-screen">
-      <Header subtitle={headerSubtitle} />
-      <main className="mx-auto max-w-2xl px-5 py-6">
-        {stage === 'wizard' && (
-          <>
-            <ProgressBar index={wizardIndex} total={steps.length} label={step.form || 'Form 3822A'} />
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-sm p-6 mb-4">
-              <h2 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h2>
-              {step.subtitle && <p className="text-sm text-slate-500 mb-5">{step.subtitle}</p>}
-              <StepScreen step={step} formData={formData} update={update} />
-            </div>
-
-            {blocked && (
-              <p className="mb-4 rounded-lg bg-[var(--gold-soft)] px-4 py-2.5 text-sm text-[var(--amber)]">{blocked}</p>
-            )}
-
-            <div className="flex gap-3">
-              <button
-                id="wizard-back"
-                onClick={goBack}
-                disabled={wizardIndex === 0}
-                className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-40"
-              >
-                Back
-              </button>
-              <button
-                id="wizard-continue"
-                onClick={goNext}
-                className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110"
-              >
-                Continue
-              </button>
-            </div>
-          </>
-        )}
-
-        {stage === 'fee' && (
-          <FeeStep
-            formData={formData}
-            onBack={() => setStage('wizard')}
-            onSkip={() => {
-              update({ 'payment.feeStatus': 'unconfirmed' })
-              setStage('subs')
-            }}
-          />
-        )}
-        {stage === 'fee-confirming' && (
-          <FeeConfirmStep
-            billingRequestId={pendingBillingRequestId}
-            onDone={() => {
-              update({ 'payment.feeStatus': 'paid' })
-              setStage('subs')
-            }}
-            onRetry={() => setStage('fee')}
-          />
-        )}
-        {stage === 'subs' && (
-          <SubsStep
-            formData={formData}
-            onBack={() => setStage('fee')}
-            onSkip={() => {
-              update({ 'payment.subsStatus': 'unconfirmed' })
-              setStage('gift-aid')
-            }}
-          />
-        )}
-        {stage === 'subs-confirming' && (
-          <SubsConfirmStep
-            billingRequestId={pendingBillingRequestId}
-            reference={buildReference(formData)}
-            onDone={() => {
-              update({ 'payment.subsStatus': 'active' })
-              setStage('gift-aid')
-            }}
-            onRetry={() => setStage('subs')}
-          />
-        )}
-
-        {stage === 'gift-aid' && <GiftAidStep formData={formData} update={update} onBack={() => setStage('subs')} onDone={() => setStage('done')} />}
-
-        {stage === 'done' && <DoneStep formData={formData} />}
-      </main>
-    </div>
-  )
+  const knownCadet = null
+  return <main className="mx-auto max-w-lg px-5 py-10"><button onClick={() => navigate('')} className="mb-5 text-sm font-semibold text-slate-500">← Back</button><form onSubmit={find} className="rounded-2xl border border-slate-200 bg-white p-7 shadow-sm"><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Joining paperwork</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">Use your open-night code</h1><p className="mt-2 text-sm text-slate-500">Paperwork is only available after staff record attendance at an open night.</p><label className="mt-5 block text-sm font-medium text-slate-800">Parent email<input type="email" className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5" value={email} onChange={(e) => { setEmail(e.target.value); setError('') }} /></label>{knownCadet && <p className="mt-2 text-xs text-slate-500">Family record found for {knownCadet.fullName}.</p>}<label className="mt-4 block text-sm font-medium text-slate-800">Four-digit joining code<input inputMode="numeric" maxLength={4} className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-center text-xl tracking-[0.35em]" value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, '')); setError('') }} /></label>{error && <p className="mt-3 text-sm text-red-700">{error}</p>}<button className="mt-5 w-full rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white">Continue</button></form></main>
 }
