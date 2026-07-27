@@ -247,11 +247,15 @@ function setMessageDeliveryStatus(familyId, cadetId, kind, status, delivery = {}
   write(data)
 }
 
-export function createEnquiry(values) {
+export function createEnquiry(values, existingId) {
   const data = read()
+  if (existingId) {
+    const prior = data.families.find((item) => item.id === existingId)
+    if (prior) return prior
+  }
   const normalizedEmail = String(values.guardianEmail || '').trim().toLowerCase()
   const family = {
-    id: id('family'),
+    id: existingId || id('family'),
     _portalToken: createFamilyToken(),
     createdAt: iso(),
     updatedAt: iso(),

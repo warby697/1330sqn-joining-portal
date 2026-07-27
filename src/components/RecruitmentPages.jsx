@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AdminSettingsPanel } from './AdminSettings'
 import AdminCommunications from './AdminCommunications'
 import {
@@ -106,6 +106,9 @@ export function InterestForm({ navigate }) {
   const [error, setError] = useState('')
   const [showTerms, setShowTerms] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const submitLock = useRef(false)
+  const familyIdRef = useRef(null)
   const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
   useEffect(() => { sessionStorage.setItem(INTEREST_DRAFT_KEY, JSON.stringify(values)) }, [values])
   const submit = async (event) => {
@@ -121,11 +124,18 @@ export function InterestForm({ navigate }) {
     }
     if (!cadetLed && !showTerms) { setShowTerms(true); setError(''); window.scrollTo({ top: 0, behavior: 'auto' }); return }
     if (!cadetLed && !termsAccepted) { setError('Read and accept the data and portal terms to continue.'); return }
-    const created = createEnquiry({ ...values, cadetDob, communicationsConsent: cadetLed ? false : values.communicationsConsent, dataTermsAccepted: !cadetLed && termsAccepted })
+    if (submitLock.current) return
+    submitLock.current = true
+    setSubmitting(true)
+    const created = createEnquiry({ ...values, cadetDob, communicationsConsent: cadetLed ? false : values.communicationsConsent, dataTermsAccepted: !cadetLed && termsAccepted }, familyIdRef.current)
+    familyIdRef.current = created.id
     try {
       await persistFamily(created)
     } catch {
       removeCachedFamily(created.id)
+      familyIdRef.current = null
+      submitLock.current = false
+      setSubmitting(false)
       setError('We could not save this enquiry to the Squadron system. No confirmation email has been sent. Please try again.')
       return
     }
@@ -137,7 +147,7 @@ export function InterestForm({ navigate }) {
   }
   if (family) return <VerificationPage familyId={family.id} navigate={navigate} cadetLed={values.submittedBy === 'cadet'} />
   const cadetLed = values.submittedBy === 'cadet'
-  if (showTerms && !cadetLed) return <Page><button type="button" onClick={() => { setShowTerms(false); setError('') }} className="mb-5 text-sm font-semibold text-slate-500">← Check enquiry details</button><div className="rounded-2xl border border-slate-200 bg-white p-7"><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Data and portal terms</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">Before you submit the enquiry</h1><div className="mt-5 space-y-4 text-sm leading-6 text-slate-700"><p><strong>Recruitment record retained:</strong> parent or guardian name, email and mobile number; prospective cadet name, date of birth and school year; enquiry source and school name where supplied; bookings, attendance, joining status, communication history and staff notes.</p><p><strong>Why we use it:</strong> to assess intake eligibility, arrange Open Nights, contact the family, evaluate recruitment activity, issue joining access and manage the recruitment process.</p><p><strong>Joining Form 3822:</strong> the detailed form is held temporarily in this browser while it is being completed. It is emailed to the authorised Squadron recipients and the parent when submitted. The joining portal does not retain a permanent copy of the completed 3822.</p><p><strong>Payments:</strong> payment and Direct Debit details are handled by the payment provider. The portal only receives the resulting status or reference.</p><p><strong>Withdrawal:</strong> a parent can withdraw the enquiry. Recruitment reminders then stop and the application is removed. A new enquiry must be started if the prospective cadet wishes to return later.</p></div><label className="mt-6 flex items-start gap-3 border-2 border-[var(--navy)] bg-[var(--navy-soft)] p-4 text-sm text-slate-800"><input type="checkbox" className="mt-0.5 h-4 w-4" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} /><span>I am the parent or guardian named in this enquiry. I have read and understood how the joining portal uses and retains our information, and I agree to these terms.</span></label>{error && <p className="mt-3 text-sm text-red-700">{error}</p>}<button type="button" onClick={submit} className={primary + ' mt-5 w-full'}>Accept and submit enquiry</button></div></Page>
+  if (showTerms && !cadetLed) return <Page><button type="button" onClick={() => { setShowTerms(false); setError('') }} className="mb-5 text-sm font-semibold text-slate-500">← Check enquiry details</button><div className="rounded-2xl border border-slate-200 bg-white p-7"><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Data and portal terms</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">Before you submit the enquiry</h1><div className="mt-5 space-y-4 text-sm leading-6 text-slate-700"><p><strong>Recruitment record retained:</strong> parent or guardian name, email and mobile number; prospective cadet name, date of birth and school year; enquiry source and school name where supplied; bookings, attendance, joining status, communication history and staff notes.</p><p><strong>Why we use it:</strong> to assess intake eligibility, arrange Open Nights, contact the family, evaluate recruitment activity, issue joining access and manage the recruitment process.</p><p><strong>Joining Form 3822:</strong> the detailed form is held temporarily in this browser while it is being completed. It is emailed to the authorised Squadron recipients and the parent when submitted. The joining portal does not retain a permanent copy of the completed 3822.</p><p><strong>Payments:</strong> payment and Direct Debit details are handled by the payment provider. The portal only receives the resulting status or reference.</p><p><strong>Withdrawal:</strong> a parent can withdraw the enquiry. Recruitment reminders then stop and the application is removed. A new enquiry must be started if the prospective cadet wishes to return later.</p></div><label className="mt-6 flex items-start gap-3 border-2 border-[var(--navy)] bg-[var(--navy-soft)] p-4 text-sm text-slate-800"><input type="checkbox" className="mt-0.5 h-4 w-4" checked={termsAccepted} onChange={(event) => setTermsAccepted(event.target.checked)} /><span>I am the parent or guardian named in this enquiry. I have read and understood how the joining portal uses and retains our information, and I agree to these terms.</span></label>{error && <p className="mt-3 text-sm text-red-700">{error}</p>}<button type="button" onClick={submit} disabled={submitting} className={primary + ' mt-5 w-full disabled:opacity-50'}>{submitting ? 'Saving…' : 'Accept and submit enquiry'}</button></div></Page>
   return <Page>
     <section className="relative mb-6 overflow-hidden rounded-2xl bg-[var(--navy)] px-6 py-7 pr-28 text-white shadow-lg"><div className="relative z-10 max-w-md"><p className="text-xs font-bold uppercase tracking-wide text-[var(--sky)]">1330 (Warrington) Squadron</p><h1 className="mt-2 text-2xl font-semibold">Start your Air Cadet journey</h1></div><img src="/squadron-crest.png" alt="" className="pointer-events-none absolute bottom-3 right-4 top-3 h-[calc(100%-1.5rem)] w-20 object-contain opacity-90 sm:right-6 sm:w-24" /></section>
     <button onClick={() => navigate('')} className="mb-5 text-sm font-semibold text-slate-500">← Back</button>
@@ -158,7 +168,7 @@ export function InterestForm({ navigate }) {
         {cadetLed && <p className="text-sm text-slate-600">Parent details are optional here. Your parent can add or correct them after opening the link on the next page.</p>}
         <label className="flex items-start gap-3 border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700"><input type="checkbox" className="mt-0.5 h-4 w-4" checked={values.communicationsConsent} onChange={(e) => set('communicationsConsent', e.target.checked)} /><span>{cadetLed ? 'I understand that a parent or guardian must complete and verify this enquiry.' : 'I am the parent or guardian named above and agree to receive recruitment, open-night and start-date communications.'}</span></label>
         {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
-        <button className={primary + ' w-full'}>Submit interest</button>
+        <button disabled={submitting} className={primary + ' w-full disabled:opacity-50'}>{submitting ? 'Saving…' : 'Submit interest'}</button>
       </form>
     </div>
   </Page>
