@@ -6,7 +6,6 @@ import {
   getCommunicationSchedule, getFamily, getOpenNightManagement, getOpenNightRoster, hasMissedIntake, hydrateSharedFamily, hydrateStaffRecruitmentData, joiningCodeExpired, listFamilies, markAttended, messagesForFamily, persistFamily, removeCachedFamily, setCadetStatus,
   sendDidNotAttendEmail, sendJoiningCodeEmail, sendOpenNightConfirmation, sendParentVerificationEmail, sendWithdrawalConfirmationEmail, setOpenNightAttendance, updateGuardianDetails, updateOpenNightManagement, verifyGuardian,
 } from '../lib/recruitmentStore'
-import { LOCAL_TEST_MODE } from '../lib/testMode'
 import { requestFamilyAccess } from '../lib/sharedRecruitmentStore'
 
 const inputClass = 'mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20'
@@ -33,12 +32,8 @@ const WITHDRAWAL_REASONS = [
 ]
 const withdrawalLabel = (value) => WITHDRAWAL_REASONS.find(([key]) => key === value)?.[1] || 'Reason not recorded'
 
-function LocalBadge() {
-  return LOCAL_TEST_MODE ? <div className="bg-[var(--gold-soft)] border-b border-[var(--gold)]/30 px-4 py-2 text-center text-xs font-semibold text-[var(--amber)]">LOCAL PROTOTYPE: emails and verification messages are simulated</div> : null
-}
-
 function Page({ children, wide = false }) {
-  return <><LocalBadge /><main className={`mx-auto px-5 py-8 ${wide ? 'max-w-6xl' : 'max-w-2xl'}`}>{children}</main></>
+  return <main className={`mx-auto px-5 py-8 ${wide ? 'max-w-6xl' : 'max-w-2xl'}`}>{children}</main>
 }
 
 function Field({ label, children, help }) {
@@ -118,7 +113,7 @@ export function InterestForm({ navigate }) {
     const required = cadetLed
       ? ['cadetName', 'cadetDob', 'schoolYear']
       : ['guardianName', 'guardianEmail', 'guardianMobile', 'cadetName', 'cadetDob', 'schoolYear']
-    if (!LOCAL_TEST_MODE && (required.some((key) => !String(values[key]).trim()) || !cadetDob || (values.source === 'School' && !values.schoolName.trim()) || (!cadetLed && !values.communicationsConsent))) {
+    if ((required.some((key) => !String(values[key]).trim()) || !cadetDob || (values.source === 'School' && !values.schoolName.trim()) || (!cadetLed && !values.communicationsConsent))) {
       setError('Complete every required field and confirm permission for recruitment communications.')
       return
     }
@@ -227,13 +222,13 @@ function VerificationPage({ familyId, navigate, cadetLed = false, embedded = fal
   }
   const saveParentDetails = async () => {
     const required = ['fullName', 'email', 'mobile']
-    if (!LOCAL_TEST_MODE && (required.some((key) => !String(details[key]).trim()) || !details.communicationsConsent || !details.dataTermsAccepted)) {
+    if ((required.some((key) => !String(details[key]).trim()) || !details.communicationsConsent || !details.dataTermsAccepted)) {
       setError('Complete the parent contact details and accept the communications and data terms.')
       return
     }
     let updated
     try {
-      updated = await updateGuardianDetails(family.id, { ...details, communicationsConsent: LOCAL_TEST_MODE || details.communicationsConsent })
+      updated = await updateGuardianDetails(family.id, details)
     } catch {
       setError('Your details could not be saved. Check your connection and try again.')
       return
@@ -262,7 +257,7 @@ function VerificationPage({ familyId, navigate, cadetLed = false, embedded = fal
   const verify = async () => {
     let updated
     try {
-      updated = await verifyGuardian(family.id, LOCAL_TEST_MODE && !code ? family.verificationCode : code)
+      updated = await verifyGuardian(family.id, code)
     } catch {
       return setError('We could not confirm your code right now. Check your connection and try again.')
     }
@@ -296,7 +291,6 @@ function VerificationPage({ familyId, navigate, cadetLed = false, embedded = fal
       {emailStatus !== 'sent' && <button type="button" onClick={resendVerification} disabled={emailStatus === 'sending'} className={secondary + ' mt-4 disabled:opacity-50'}>{emailStatus === 'sending' ? 'Sending…' : 'Send verification code'}</button>}
       {emailStatus === 'sent' && <button type="button" onClick={resendVerification} disabled={emailStatus === 'sending'} className="mt-3 block w-full text-sm font-semibold text-[var(--blue)] underline disabled:opacity-50">Send the code again</button>}
       {localPreview && emailStatus === 'failed' && <div className="mx-auto mt-4 max-w-xs border-2 border-[var(--gold)] bg-[var(--gold-soft)] p-4"><p className="text-xs font-bold uppercase tracking-wide text-[var(--amber)]">Local testing code</p><p className="mt-1 font-mono text-2xl tracking-[0.3em] text-[var(--navy)]">{family.verificationCode}</p><p className="mt-2 text-xs text-slate-600">Shown only because local email sending failed. This is never displayed on the live website.</p></div>}
-      {LOCAL_TEST_MODE && <div className="mx-auto mt-5 max-w-xs border border-slate-200 bg-slate-50 p-4"><p className="text-xs font-bold uppercase tracking-wide text-[var(--amber)]">Local parent verification code</p><p className="mt-1 font-mono text-2xl tracking-[0.3em] text-[var(--navy)]">{family.verificationCode}</p></div>}
       <div className="mx-auto mt-5 flex max-w-xs gap-2"><input inputMode="numeric" maxLength={6} className={inputClass + ' mt-0 text-center tracking-[0.25em]'} value={code} onChange={(e) => { setCode(e.target.value.replace(/\D/g, '')); setError('') }} /><button onClick={verify} className={primary}>Verify</button></div>
     </>}
     {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
@@ -452,7 +446,7 @@ function AddCadetForm({ family, onAdded, onCancel }) {
   const submit = async (event) => {
     event.preventDefault()
     const cadetDob = dobToIso(values.cadetDob)
-    if (!LOCAL_TEST_MODE && (!values.cadetName.trim() || !cadetDob || !values.schoolYear)) {
+    if ((!values.cadetName.trim() || !cadetDob || !values.schoolYear)) {
       setError('Enter the cadet name, date of birth and school year.')
       return
     }

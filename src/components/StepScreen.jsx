@@ -2,7 +2,6 @@ import FieldRenderer from './FieldRenderer'
 import ConditionDetails from './ConditionDetails'
 import Allergies from './Allergies'
 import Declaration from './Declaration'
-import { LOCAL_TEST_MODE } from '../lib/testMode'
 
 function isAnswered(field, formData) {
   const v = formData[field.id]
@@ -99,7 +98,6 @@ export default function StepScreen({ step, formData, update }) {
 // Also covers the custom `kind` screens (declaration, condition-details), which have no
 // `fields` array and would otherwise skip validation entirely.
 export function stepIncompleteReason(step, formData) {
-  if (LOCAL_TEST_MODE) return null
   if (step.kind === 'declaration') {
     const sig = formData['health.signature'] || {}
     if (!(filled(sig.forename) && filled(sig.surname) && filled(sig.signature))) {
@@ -130,7 +128,6 @@ export function stepIncompleteReason(step, formData) {
 }
 
 export function stepBlockedReason(step, formData) {
-  if (LOCAL_TEST_MODE) return null
   const gateField = step.fields?.find((f) => f.gate)
   if (gateField && formData[gateField.id] === false) {
     return 'You must have parental responsibility for this cadet to submit the form.'

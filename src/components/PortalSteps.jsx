@@ -3,7 +3,6 @@ import { buildReference, nameParts } from '../lib/reference'
 import { getEmailTemplates } from '../lib/communicationSettings'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 import SummaryPreview from './SummaryPreview'
-import { LOCAL_TEST_MODE } from '../lib/testMode'
 import { PARENT_SIGNAL_GROUP_URL as SIGNAL_GROUP_URL, CADET_SIGNAL_GROUP_URL } from '../lib/signalGroups'
 
 // Stashed before we hand off to GoCardless so we can resume the confirm step on return.
@@ -393,7 +392,7 @@ export function GiftAidStep({ formData, update, onDone, onBack }) {
   const [error, setError] = useState(null)
   const set = (key, value) => update({ [key]: value })
   const submit = () => {
-    if (!LOCAL_TEST_MODE && (!donorName.trim() || !donorAddress.trim() || !giftScope || !formData['giftAid.confirmed'] || !String(formData['giftAid.signature'] || '').trim())) {
+    if ((!donorName.trim() || !donorAddress.trim() || !giftScope || !formData['giftAid.confirmed'] || !String(formData['giftAid.signature'] || '').trim())) {
       setError('Please complete the donor details, choose which gifts the declaration covers, confirm the taxpayer statement, and type your signature.')
       return
     }
