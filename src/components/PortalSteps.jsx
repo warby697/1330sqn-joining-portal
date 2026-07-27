@@ -27,7 +27,6 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
   const [ack, setAck] = useState(false)
 
   const startPayment = async () => {
-    const paymentTab = window.open('about:blank', '_blank')
     setLoading(true)
     setError(null)
     try {
@@ -46,11 +45,10 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the payment')
       sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'fee', billingRequestId: data.billingRequestId, returnRoute: window.location.hash }))
       onStarted(data.billingRequestId)
-      if (data.alreadyAuthorised) paymentTab?.close()
-      else if (paymentTab) paymentTab.location.href = data.authorisationUrl
-      else window.location.href = data.authorisationUrl
+      // Single tab: send THIS tab to GoCardless. It handles any bank/QR handover
+      // itself and returns us here, where the confirm step resumes from sessionStorage.
+      if (!data.alreadyAuthorised) window.location.href = data.authorisationUrl
     } catch (e) {
-      paymentTab?.close()
       setError(e.message)
       setLoading(false)
     }
@@ -59,10 +57,13 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
   return (
     <Card>
       <div className="mb-5 rounded-xl bg-[var(--navy)] p-5 text-white">
-        <p className="text-xs font-bold uppercase tracking-wide text-[var(--sky)]">Payment 1 of 2</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--sky)]">Payment 1 of 2</p>
+          <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">One-off payment</span>
+        </div>
         <h2 className="mt-2 text-2xl font-semibold">Joining fee</h2>
-        <p className="mt-3 text-3xl font-bold">{FEE_LABEL}</p>
-        <p className="mt-2 text-sm leading-6 text-white/80">You will be charged this amount once. This is not a recurring payment.</p>
+        <p className="mt-3 text-3xl font-bold">{FEE_LABEL} <span className="text-base font-medium text-white/70">once</span></p>
+        <p className="mt-2 text-sm leading-6 text-white/80">A single payment to set up the cadet. You will not be charged this again. The monthly subscription is set up on the next page.</p>
       </div>
       <p className="mb-4 text-sm leading-6 text-slate-600">
         The joining fee covers the cadet's initial kit issue and account setup. Payment is made securely from your bank through GoCardless. No card details are required.
@@ -210,7 +211,6 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
   const [ack, setAck] = useState(false)
 
   const startMandate = async () => {
-    const paymentTab = window.open('about:blank', '_blank')
     setLoading(true)
     setError(null)
     try {
@@ -229,11 +229,10 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the Direct Debit setup')
       sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'subs', billingRequestId: data.billingRequestId, returnRoute: window.location.hash }))
       onStarted(data.billingRequestId)
-      if (data.alreadyAuthorised) paymentTab?.close()
-      else if (paymentTab) paymentTab.location.href = data.authorisationUrl
-      else window.location.href = data.authorisationUrl
+      // Single tab: send THIS tab to GoCardless. It handles any bank/QR handover
+      // itself and returns us here, where the confirm step resumes from sessionStorage.
+      if (!data.alreadyAuthorised) window.location.href = data.authorisationUrl
     } catch (e) {
-      paymentTab?.close()
       setError(e.message)
       setLoading(false)
     }
@@ -242,10 +241,13 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
   return (
     <Card>
       <div className="mb-5 rounded-xl border-2 border-[var(--green)] bg-[var(--green-soft)] p-5">
-        <p className="text-xs font-bold uppercase tracking-wide text-[var(--green)]">Payment 2 of 2</p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-[var(--green)]">Payment 2 of 2</p>
+          <span className="rounded-full bg-[var(--green)] px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">Repeats every month</span>
+        </div>
         <h2 className="mt-2 text-2xl font-semibold text-[var(--navy)]">Monthly subs</h2>
         <p className="mt-3 text-3xl font-bold text-[var(--green)]">{SUBS_LABEL}</p>
-        <p className="mt-2 text-sm font-medium leading-6 text-slate-700">This sets up a recurring monthly Direct Debit. It is separate from the one-off joining fee.</p>
+        <p className="mt-2 text-sm font-medium leading-6 text-slate-700">This is a recurring monthly Direct Debit, separate from the one-off joining fee. It continues each month until you tell us to stop.</p>
       </div>
       <p className="mb-4 text-sm leading-6 text-slate-600">
         You will be taken to GoCardless's secure page to enter your bank details and authorise the monthly collection.

@@ -14,6 +14,13 @@
   --amber: #A9702D;
 }
 
+/* Leave room above/below a focused field so the mobile keyboard does not
+   cover it when it is scrolled into view. */
+input, select, textarea {
+  scroll-margin-top: 5rem;
+  scroll-margin-bottom: 8rem;
+}
+
 body {
   margin: 0;
   background: #F1F3F4;

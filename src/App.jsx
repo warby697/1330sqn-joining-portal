@@ -30,6 +30,19 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [route.page, route.parts])
 
+  // On touch devices the on-screen keyboard covers the lower half of the page.
+  // When a field gains focus, bring it (and the button below it) into view.
+  useEffect(() => {
+    if (!window.matchMedia?.('(pointer: coarse)').matches) return
+    const onFocusIn = (event) => {
+      const field = event.target
+      if (!field.matches?.('input, select, textarea')) return
+      setTimeout(() => field.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300)
+    }
+    document.addEventListener('focusin', onFocusIn)
+    return () => document.removeEventListener('focusin', onFocusIn)
+  }, [])
+
   if (route.page === 'interest') return <InterestForm navigate={navigate} />
   if (import.meta.env.DEV && route.page === 'family-preview') return <FamilyDashboard familyId="preview-family" navigate={navigate} previewFamily={previewFamily} />
   if (import.meta.env.DEV && route.page === 'joining-preview') return <JoiningJourney familyId="preview-family" cadetId="preview-cadet" navigate={navigate} previewFamily={joiningPreviewFamily} previewStage="fee" />
@@ -61,19 +74,16 @@ function PaymentReturnPage({ preview = false }) {
   const kind = preview ? 'fee' : params.get('payment_kind')
   const billingRequestId = preview ? 'BRQ-PREVIEW' : params.get('billing_request_id')
   const pending = (() => { try { return JSON.parse(sessionStorage.getItem(PENDING_PAYMENT_KEY) || 'null') } catch { return null } })()
-  const originalTabIsOpen = !preview && Boolean(window.opener && !window.opener.closed)
 
   useEffect(() => {
-    if (!preview && kind === 'subs' && originalTabIsOpen) {
-      window.close()
-      return
-    }
-    if (preview || outcome !== 'complete' || originalTabIsOpen || pending?.billingRequestId !== billingRequestId || !pending?.returnRoute) return
+    // Same-tab flow: as soon as we are back from GoCardless, return to the
+    // journey, which resumes the confirm step from sessionStorage.
+    if (preview || outcome !== 'complete' || pending?.billingRequestId !== billingRequestId || !pending?.returnRoute) return
     window.location.hash = pending.returnRoute
-  }, [billingRequestId, kind, originalTabIsOpen, outcome, pending?.billingRequestId, pending?.returnRoute, preview])
+  }, [billingRequestId, outcome, pending?.billingRequestId, pending?.returnRoute, preview])
 
   const cancelled = outcome === 'cancelled'
-  return <main className="mx-auto flex min-h-screen max-w-lg items-center px-5 py-12"><section className={`w-full border-2 bg-white p-8 text-center ${cancelled ? 'border-[var(--gold)]' : 'border-[var(--green)]'}`}><div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white ${cancelled ? 'bg-[var(--amber)]' : 'bg-[var(--green)]'}`}>{cancelled ? '!' : '✓'}</div><p className="mt-5 text-xs font-bold uppercase tracking-wide text-[var(--blue)]">{kind === 'subs' ? 'Direct Debit' : 'Joining fee'}</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{cancelled ? 'Setup not completed' : 'Payment step completed'}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{cancelled ? 'Nothing has been charged. Return to your application to try again when ready.' : 'Your application will continue automatically.'}</p>{originalTabIsOpen && <button type="button" onClick={() => window.close()} className="mt-6 rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white">Back to application</button>}</section></main>
+  return <main className="mx-auto flex min-h-screen max-w-lg items-center px-5 py-12"><section className={`w-full border-2 bg-white p-8 text-center ${cancelled ? 'border-[var(--gold)]' : 'border-[var(--green)]'}`}><div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full text-2xl font-bold text-white ${cancelled ? 'bg-[var(--amber)]' : 'bg-[var(--green)]'}`}>{cancelled ? '!' : '✓'}</div><p className="mt-5 text-xs font-bold uppercase tracking-wide text-[var(--blue)]">{kind === 'subs' ? 'Direct Debit' : 'Joining fee'}</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{cancelled ? 'Setup not completed' : 'Payment step completed'}</h1><p className="mt-3 text-sm leading-6 text-slate-600">{cancelled ? 'Nothing has been charged. Return to your application to try again when ready.' : 'Your application will continue automatically.'}</p></section></main>
 }
 
 function SharedJoiningJourney({ familyId, cadetId, accessToken, navigate }) {
