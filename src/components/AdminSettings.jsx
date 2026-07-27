@@ -112,7 +112,7 @@ export function AdminSettingsPanel() {
             >
               Save
             </button>
-            {pinSaved && <span className="text-sm text-[var(--green)] font-medium">Saved — new code is {pin}</span>}
+            {pinSaved && <span className="text-sm text-[var(--green)] font-medium">Saved - new code is {pin}</span>}
           </div>
           {pinError && <p className="text-sm text-[var(--amber)]">{pinError}</p>}
         </div>
@@ -121,7 +121,7 @@ export function AdminSettingsPanel() {
           <h2 className="text-base font-semibold text-slate-900 mb-1">To email address</h2>
           <p className="text-sm text-slate-500 mb-5">
             Every completed joining form is emailed to every address below. Update this list if a staff member's
-            Bader inbox changes — no code change or redeploy needed.
+            Bader inbox changes - no code change or redeploy needed.
           </p>
 
           <div className="space-y-2 mb-3">

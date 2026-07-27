@@ -2,7 +2,7 @@ import { buildReference } from '../lib/reference'
 import { CONDITION_OPTIONS, ALLERGY_OPTIONS, GENDER_OPTIONS, PRONOUN_OPTIONS, NATIONALITY_OPTIONS } from '../lib/options'
 import { FEE_LABEL, SUBS_LABEL } from '../lib/pricing'
 
-const dash = (v) => (v === undefined || v === null || v === '' ? '—' : v)
+const dash = (v) => (v === undefined || v === null || v === '' ? '-' : v)
 const yn = (v) => (v === undefined ? undefined : v ? 'yes' : 'no')
 
 function ConsentRow({ label, value }) {
@@ -12,7 +12,7 @@ function ConsentRow({ label, value }) {
       <td className="py-1.5 pr-2 text-slate-700">{label}</td>
       <td className="py-1.5 text-right">
         {v === undefined ? (
-          <span className="text-slate-400">—</span>
+          <span className="text-slate-400">-</span>
         ) : (
           <span
             className={
@@ -40,7 +40,7 @@ function Row({ k, v }) {
 const PAYMENT_STATUS_LABELS = {
   paid: { label: 'Paid', className: 'bg-[var(--green-soft)] text-[var(--green)]' },
   active: { label: 'Active', className: 'bg-[var(--green-soft)] text-[var(--green)]' },
-  unconfirmed: { label: 'Not confirmed — check GoCardless', className: 'bg-[var(--gold-soft)] text-[var(--amber)]' },
+  unconfirmed: { label: 'Not confirmed - check GoCardless', className: 'bg-[var(--gold-soft)] text-[var(--amber)]' },
 }
 
 function PaymentRow({ k, status }) {
@@ -53,7 +53,7 @@ function PaymentRow({ k, status }) {
           {info.label}
         </span>
       ) : (
-        <span className="font-semibold text-right text-slate-400">—</span>
+        <span className="font-semibold text-right text-slate-400">-</span>
       )}
     </div>
   )
@@ -93,7 +93,7 @@ export default function SummaryPreview({ formData }) {
 
       <div className="px-6 py-5">
         <div className="flex justify-between items-end border-b-2 border-slate-900 pb-3 mb-4">
-          <h3 className="text-lg font-bold text-slate-900">Consent Certificate — Summary</h3>
+          <h3 className="text-lg font-bold text-slate-900">Consent Certificate - Summary</h3>
           <span className="text-xs font-mono text-slate-500">Form 3822A · via joining portal</span>
         </div>
 
@@ -121,7 +121,7 @@ export default function SummaryPreview({ formData }) {
               k="Medical / allergy flag"
               v={
                 formData['cadet.hasMedical'] === true
-                  ? 'Yes — Health Declaration below'
+                  ? 'Yes - Health Declaration below'
                   : formData['cadet.hasMedical'] === false
                   ? 'No'
                   : undefined
@@ -141,10 +141,10 @@ export default function SummaryPreview({ formData }) {
         <table className="w-full text-sm mb-2">
           <tbody>
             <ConsentRow label="Photo & video use" value={formData['consent.photo']} />
-            <ConsentRow label="Flying — air experience" value={formData['consent.flyingLight']} />
-            <ConsentRow label="Flying — solo gliding/powered aircraft" value={formData['consent.flyingSolo']} />
-            <ConsentRow label="Flying — passenger transport/helicopters" value={formData['consent.flyingTransport']} />
-            <ConsentRow label="Flying — other incl. high-performance jets" value={formData['consent.flyingOther']} />
+            <ConsentRow label="Flying - air experience" value={formData['consent.flyingLight']} />
+            <ConsentRow label="Flying - solo gliding/powered aircraft" value={formData['consent.flyingSolo']} />
+            <ConsentRow label="Flying - passenger transport/helicopters" value={formData['consent.flyingTransport']} />
+            <ConsentRow label="Flying - other incl. high-performance jets" value={formData['consent.flyingOther']} />
             <ConsentRow label="Marksmanship training" value={formData['consent.marksmanship']} />
             <ConsentRow label="Strenuous physical activity" value={formData['consent.physical']} />
             <ConsentRow label="Lower-risk unit activities" value={formData['consent.lowerRisk']} />
@@ -157,7 +157,7 @@ export default function SummaryPreview({ formData }) {
         {formData['cadet.hasMedical'] === true && (
           <>
             <p className="text-[11px] font-bold uppercase tracking-wider text-[var(--blue)] mt-5 mb-2">
-              Health Declaration (3822H) — attached
+              Health Declaration (3822H) - attached
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
               <div>
@@ -165,7 +165,7 @@ export default function SummaryPreview({ formData }) {
                 {conditions.map((key) => {
                   const label = CONDITION_OPTIONS.find((c) => c.value === key)?.label
                   const d = details[key] || {}
-                  return <Row key={key} k={label} v={d.severity ? `${d.severity}` : '—'} />
+                  return <Row key={key} k={label} v={d.severity ? `${d.severity}` : '-'} />
                 })}
               </div>
               <div>
@@ -177,7 +177,7 @@ export default function SummaryPreview({ formData }) {
                     <Row
                       key={key}
                       k={label}
-                      v={[d.severity, d.autoInjector ? 'auto-injector' : null].filter(Boolean).join(', ') || '—'}
+                      v={[d.severity, d.autoInjector ? 'auto-injector' : null].filter(Boolean).join(', ') || '-'}
                     />
                   )
                 })}
@@ -204,7 +204,7 @@ export default function SummaryPreview({ formData }) {
       </div>
 
       <div className="bg-slate-50 border-t border-slate-200 px-6 py-2.5 flex justify-between text-[11px] text-slate-500">
-        <span>OFFICIAL (SENSITIVE) – PERSONAL (When completed)</span>
+        <span>OFFICIAL (SENSITIVE) - PERSONAL (When completed)</span>
         <span>Portal copy purges automatically 48h after generation</span>
       </div>
     </div>

@@ -44,7 +44,7 @@ export default async (req) => {
   const mandateId = br.billing_requests?.mandate_request?.links?.mandate
   if (!mandateId) {
     return new Response(
-      JSON.stringify({ error: 'pending', message: 'The Direct Debit mandate is not ready yet — it may still be processing, or the setup may have been cancelled.' }),
+      JSON.stringify({ error: 'pending', message: 'The Direct Debit mandate is not ready yet - it may still be processing, or the setup may have been cancelled.' }),
       { status: 409, headers: { 'Content-Type': 'application/json' } }
     )
   }

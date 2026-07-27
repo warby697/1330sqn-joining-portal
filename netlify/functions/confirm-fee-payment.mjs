@@ -41,7 +41,7 @@ export default async (req) => {
   const paymentId = br.billing_requests?.payment_request?.links?.payment
   if (!paymentId) {
     return new Response(
-      JSON.stringify({ error: 'pending', message: 'The payment is not ready yet — it may still be processing, or it may have been cancelled.' }),
+      JSON.stringify({ error: 'pending', message: 'The payment is not ready yet - it may still be processing, or it may have been cancelled.' }),
       { status: 409, headers: { 'Content-Type': 'application/json' } }
     )
   }

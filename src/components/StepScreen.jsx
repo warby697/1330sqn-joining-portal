@@ -42,7 +42,7 @@ export default function StepScreen({ step, formData, update }) {
           <span className="font-semibold">{formData['cadet.fullName'] || 'Cadet'}</span>
           {formData['cadet.dob'] && <span className="text-slate-500"> · born {displayDob(formData['cadet.dob'])}</span>}
         </p>
-        <p className="text-xs text-slate-500 mt-1">Carried over from the form you already filled in — no need to retype it.</p>
+        <p className="text-xs text-slate-500 mt-1">Carried over from the form you already filled in - no need to retype it.</p>
       </div>
     )
   }

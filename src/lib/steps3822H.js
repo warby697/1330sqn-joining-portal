@@ -7,7 +7,7 @@ export const steps3822H = [
     form: '3822H',
     section: '1',
     title: 'Health Declaration',
-    subtitle: "Because you said your child has a medical condition, allergy or dietary need, we need a bit more detail — this is RAFAC Form 3822H. Your child's name and date of birth carry over automatically.",
+    subtitle: "Because you said your child has a medical condition, allergy or dietary need, we need a bit more detail - this is RAFAC Form 3822H. Your child's name and date of birth carry over automatically.",
     kind: 'readonly-intro',
   },
   {
@@ -25,7 +25,7 @@ export const steps3822H = [
     form: '3822H',
     section: '2b/2c',
     title: 'Tell us more about each condition',
-    subtitle: 'The paper form caps at two conditions before you need a whole separate form — here you can just add another.',
+    subtitle: 'The paper form caps at two conditions before you need a whole separate form - here you can just add another.',
     kind: 'condition-details',
   },
   {

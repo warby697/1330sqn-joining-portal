@@ -33,7 +33,7 @@ export default function Allergies({ formData, update }) {
         ))}
       </div>
 
-      {ticked.length === 0 && <p className="text-sm text-slate-400">Nothing ticked — skip this if none apply.</p>}
+      {ticked.length === 0 && <p className="text-sm text-slate-400">Nothing ticked - skip this if none apply.</p>}
 
       <div className="space-y-3">
         {ticked.map((key) => {

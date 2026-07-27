@@ -9,7 +9,7 @@ export default function ConditionDetails({ formData, update }) {
   if (ticked.length === 0) {
     return (
       <p className="text-sm text-slate-500 rounded-lg bg-slate-100 px-4 py-3">
-        No conditions were ticked on the previous screen, so there's nothing to add detail to here — go back if that
+        No conditions were ticked on the previous screen, so there's nothing to add detail to here - go back if that
         wasn't right.
       </p>
     )

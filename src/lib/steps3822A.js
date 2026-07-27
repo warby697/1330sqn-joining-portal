@@ -6,7 +6,7 @@ export const steps3822A = [
     id: 'cadet-details',
     section: '1a',
     title: "Cadet's details",
-    subtitle: 'Gender and ethnicity are used only for anonymised MoD statistical reporting — never shared with a name attached.',
+    subtitle: 'Gender and ethnicity are used only for anonymised MoD statistical reporting - never shared with a name attached.',
     completeIf: (d) =>
       (d['cadet.gender'] !== 'other' || String(d['cadet.genderOther'] || '').trim() !== '') &&
       (d['cadet.nationality'] !== 'other' || String(d['cadet.nationalityOther'] || '').trim() !== ''),
@@ -18,7 +18,7 @@ export const steps3822A = [
         type: 'select', id: 'cadet.nationality', label: 'Nationality', required: true, options: NATIONALITY_OPTIONS,
         otherValue: 'other', otherField: { type: 'text', id: 'cadet.nationalityOther', label: 'Please specify nationality' },
       },
-      { type: 'text', id: 'cadet.religion', label: 'Religion (optional)', help: "Used for pastoral care only — leave blank if you'd rather not say." },
+      { type: 'text', id: 'cadet.religion', label: 'Religion (optional)', help: "Used for pastoral care only - leave blank if you'd rather not say." },
       {
         type: 'select', id: 'cadet.gender', label: 'Gender', required: true, options: GENDER_OPTIONS,
         otherValue: 'other', otherField: { type: 'text', id: 'cadet.genderOther', label: 'Please specify' },
@@ -55,7 +55,7 @@ export const steps3822A = [
         id: 'cadet.emailNotice',
         textFor: (d) => {
           const first = (d['cadet.fullName'] || '').trim().split(' ')[0]
-          return `⚠ This must be an email address for ${first || 'the cadet'} — NOT a parent or guardian's own email. ${first || 'The cadet'}'s Cadet Portal sign-in details will be sent to this address, so ${first ? first : 'they'} must be able to check it. If they don't have an email address, ask the squadron before entering your own.`
+          return `⚠ This must be an email address for ${first || 'the cadet'} - NOT a parent or guardian's own email. ${first || 'The cadet'}'s Cadet Portal sign-in details will be sent to this address, so ${first ? first : 'they'} must be able to check it. If they don't have an email address, ask the squadron before entering your own.`
         },
       },
       {
@@ -67,7 +67,7 @@ export const steps3822A = [
           return first ? `${first}'s email address` : "Cadet's email address"
         },
         required: true,
-        help: "Sign-in details are sent here — the cadet must be able to access it themselves, not just a parent.",
+        help: "Sign-in details are sent here - the cadet must be able to access it themselves, not just a parent.",
       },
       { type: 'text', id: 'cadet.secondaryEmail', label: 'Secondary email (optional)' },
       {
@@ -90,7 +90,7 @@ export const steps3822A = [
   {
     id: 'next-of-kin',
     section: '2a',
-    title: 'Next of kin — parent/guardian 1',
+    title: 'Next of kin - parent/guardian 1',
     fields: [
       {
         type: 'yn', id: 'parent1.parentalResponsibility', required: true, gate: true,
@@ -138,13 +138,13 @@ export const steps3822A = [
     id: 'consents',
     section: '3',
     title: 'Consent to participate',
-    subtitle: 'Every item below stands in for a paragraph of MOD legal text on the paper form — the full wording is one tap away if you want it.',
+    subtitle: 'Every item below stands in for a paragraph of MOD legal text on the paper form - the full wording is one tap away if you want it.',
     fields: [
       { type: 'yn', id: 'consent.photo', required: true, label: 'Can we use photos/videos of your child to promote the squadron?', help: 'Home addresses are never shared. Can be withdrawn any time in writing.' },
-      { type: 'yn', id: 'consent.flyingLight', required: true, label: 'Flying — air experience (light aircraft & gliders)' },
-      { type: 'yn', id: 'consent.flyingSolo', required: true, label: 'Flying — solo gliding / powered aircraft' },
-      { type: 'yn', id: 'consent.flyingTransport', required: true, label: 'Flying — passenger transport aircraft & helicopters' },
-      { type: 'yn', id: 'consent.flyingOther', required: true, label: 'Flying — other, incl. high-performance jets' },
+      { type: 'yn', id: 'consent.flyingLight', required: true, label: 'Flying - air experience (light aircraft & gliders)' },
+      { type: 'yn', id: 'consent.flyingSolo', required: true, label: 'Flying - solo gliding / powered aircraft' },
+      { type: 'yn', id: 'consent.flyingTransport', required: true, label: 'Flying - passenger transport aircraft & helicopters' },
+      { type: 'yn', id: 'consent.flyingOther', required: true, label: 'Flying - other, incl. high-performance jets' },
       { type: 'yn', id: 'consent.marksmanship', required: true, label: 'Air rifle / rifle / shotgun marksmanship training', help: 'Fully supervised by qualified instructors under the Cadet Safe System of Training.' },
       { type: 'yn', id: 'consent.physical', required: true, label: 'Strenuous physical activity (fieldcraft, adventure training)' },
       { type: 'yn', id: 'consent.lowerRisk', required: true, label: 'Standard lower-risk unit activities (local events, parades, trips)' },
@@ -160,7 +160,7 @@ export const steps3822A = [
       {
         type: 'yn', id: 'cadet.hasMedical', required: true,
         label: 'Does your child have a medical condition, SEN, allergy or dietary requirement?',
-        help: 'A "yes" opens the Health Declaration (3822H) straight after this form — no separate paperwork to chase up.',
+        help: 'A "yes" opens the Health Declaration (3822H) straight after this form - no separate paperwork to chase up.',
       },
     ],
   },
@@ -186,12 +186,12 @@ export const steps3822A = [
     id: 'agreement',
     section: '8',
     title: 'Agreement & signature',
-    subtitle: 'Section 7 (data protection) carries no field of its own — it\'s a plain-read consent, covered by your signature below.',
+    subtitle: 'Section 7 (data protection) carries no field of its own - it\'s a plain-read consent, covered by your signature below.',
     fields: [
       {
         type: 'details',
         id: 'agreement.section7',
-        summary: 'Read Section 7 — Data Protection & MOD Computer Systems',
+        summary: 'Read Section 7 - Data Protection & MOD Computer Systems',
         text: `By providing consent to join the RAF Air Cadets, I agree to the RAF Air Cadets recording and processing information about my child on the Cadet Forces Management Information System computer systems which includes the Cadet Portal.
 
 If your child has been a member of one of the youth organisations listed at Section 1c, we may contact this organisation to share information about your child with them. If you do not consent to this information sharing, please contact the unit Officer Commanding.

@@ -50,7 +50,7 @@ export default async (req) => {
   if (brRes.ok) {
     billingRequestId = br.billing_requests.id
   } else if (conflict?.links?.conflicting_resource_id) {
-    // Same person retrying the same day's mandate (e.g. they backed out and clicked again) —
+    // Same person retrying the same day's mandate (e.g. they backed out and clicked again) -
     // reuse the existing billing request rather than erroring, and get them a fresh hosted flow below.
     billingRequestId = conflict.links.conflicting_resource_id
   } else {

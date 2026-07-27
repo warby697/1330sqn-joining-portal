@@ -94,7 +94,7 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
               onChange={(e) => setAck(e.target.checked)}
               className="mt-0.5"
             />
-            I've already paid, or I'll sort this with the squadron directly — let me continue anyway.
+            I've already paid, or I'll sort this with the squadron directly - let me continue anyway.
           </label>
           <button
             onClick={onSkip}
@@ -175,7 +175,7 @@ export function FeeConfirmStep({ billingRequestId, onDone, onContinueUnconfirmed
               onChange={(e) => setAck(e.target.checked)}
               className="mt-0.5"
             />
-            I've already completed this payment at my bank — I don't need to pay again.
+            I've already completed this payment at my bank - I don't need to pay again.
           </label>
           <button
             onClick={onContinueUnconfirmed}
@@ -277,7 +277,7 @@ export function SubsStep({ formData, onStarted, onSkip, onBack }) {
               onChange={(e) => setAck(e.target.checked)}
               className="mt-0.5"
             />
-            I've already set this up, or I'll sort this with the squadron directly — let me continue anyway.
+            I've already set this up, or I'll sort this with the squadron directly - let me continue anyway.
           </label>
           <button
             onClick={onSkip}
@@ -355,7 +355,7 @@ export function SubsConfirmStep({ billingRequestId, reference, onDone, onContinu
               onChange={(e) => setAck(e.target.checked)}
               className="mt-0.5"
             />
-            I've already set this up at my bank — I don't need to do it again.
+            I've already set this up at my bank - I don't need to do it again.
           </label>
           <button
             onClick={onContinueUnconfirmed}
@@ -475,12 +475,12 @@ export function DoneStep({ formData, onComplete, onBackToGiftAid, nextCadetName 
   return (
     <div>
       <div className="rounded-2xl bg-[var(--green-soft)] border border-[var(--green)]/30 px-6 py-5 mb-6 text-center">
-        <p className="text-lg font-semibold text-[var(--green)] mb-1">All done — welcome to 1330 Squadron</p>
+        <p className="text-lg font-semibold text-[var(--green)] mb-1">All done - welcome to 1330 Squadron</p>
         <p className="text-sm text-slate-600 mb-3">The completed joining forms are emailed to the authorised recipients and are not retained in the recruitment portal. Your basic recruitment record remains available to you and Squadron staff.</p>
         <div className="text-sm text-slate-700 space-y-2">
           {formData['parent1.primaryEmail'] && (
             <p>
-              You'll get a copy emailed to <strong>{formData['parent1.primaryEmail']}</strong> — keep it in case you
+              You'll get a copy emailed to <strong>{formData['parent1.primaryEmail']}</strong> - keep it in case you
               need it, or in case the squadron asks for it again.
             </p>
           )}
@@ -559,7 +559,7 @@ export function DoneStep({ formData, onComplete, onBackToGiftAid, nextCadetName 
         <p className="text-sm text-slate-600 mb-4">Uniform is provided by the squadron once the order arrives from HQ. This can take several months.</p>
         <p className="text-sm font-semibold text-slate-800 mb-2">In addition, your cadet will need to obtain:</p>
         <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700">
-          <li>Black parade shoes — DMS specifically; eBay is often the best place to look</li>
+          <li>Black parade shoes - DMS specifically; eBay is often the best place to look</li>
           <li>MTP shirt, trousers and smock</li>
           <li>MOD brown patrol boots</li>
           <li>Thick socks and boot bands (twisters)</li>
@@ -567,7 +567,7 @@ export function DoneStep({ formData, onComplete, onBackToGiftAid, nextCadetName 
         </ul>
         <p className="mt-5 text-sm font-semibold text-slate-800 mb-2">Recommended suppliers:</p>
         <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700">
-          <li>Cadet Direct — they offer a complete MTP set bundle</li>
+          <li>Cadet Direct - they offer a complete MTP set bundle</li>
           <li>Cadet Kit Shop</li>
         </ul>
         <label className="mt-5 flex items-start gap-2 rounded-lg bg-[var(--navy-soft)] px-4 py-3 text-sm font-medium text-[var(--navy)]">
