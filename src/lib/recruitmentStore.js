@@ -662,6 +662,13 @@ function intakeCandidates(from = new Date()) {
   return candidates
 }
 
+// The next intake full stop, with no eligibility screening. A direct joiner has already
+// been accepted by staff, and we do not hold their DOB or school year at that point:
+// getNextEligibleIntake would fail its age check and fall back to the LAST candidate,
+// which is up to 8 years away.
+export function getNextIntake(from = new Date()) {
+  return intakeCandidates(from)[0]
+}
 export function getNextEligibleIntake(cadet, from = new Date()) {
   return intakeCandidates(from).find((intake) => ageAt(cadet.dob, intake) >= 13 || schoolYearAt(cadet, intake) >= 8) || intakeCandidates(from).at(-1)
 }
@@ -676,23 +683,13 @@ function isEligibleForNextIntake(cadet, from = new Date()) {
 // straight into the paperwork. The intake date is worked out here because that logic
 // lives client-side, and the server just stores what it is given.
 export async function addDirectJoiner(values) {
-  const provisionalCadet = {
-    dob: values.cadetDob,
-    schoolYear: Number(values.schoolYear),
-    schoolYearRecordedAcademicYear: academicYear(new Date()),
-  }
+  // Staff only supply parent name, parent email and cadet name. Everything else
+  // (DOB, school year, mobile, address) is collected from the parent in the 3822A.
   const result = await createDirectJoiner({
     guardianName: values.guardianName,
     guardianEmail: values.guardianEmail,
-    guardianMobile: values.guardianMobile,
-    postcode: values.postcode,
     cadetName: values.cadetName,
-    cadetDob: values.cadetDob,
-    schoolYear: values.schoolYear,
-    schoolYearRecordedAcademicYear: provisionalCadet.schoolYearRecordedAcademicYear,
-    source: values.source || 'Direct',
-    sourceDetail: values.sourceDetail || '',
-    intendedStartDate: getNextEligibleIntake(provisionalCadet).toISOString(),
+    intendedStartDate: getNextIntake().toISOString(),
   })
   const base = `${window.location.origin}${window.location.pathname}`
   const portalUrl = `${base}#/join/${result.familyId}/${result.cadetId}/${result.token}`
@@ -711,3 +708,4 @@ export async function addDirectJoiner(values) {
   const emailResult = await email.json().catch(() => ({}))
   return { ...result, portalUrl, emailSent: email.ok, emailError: email.ok ? null : (emailResult.error || 'The email could not be sent.') }
 }
+
