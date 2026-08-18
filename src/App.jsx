@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { PinGate } from './components/AdminSettings'
 import JoiningJourney from './components/JoiningJourney'
+import DirectJoinerDesk from './components/DirectJoinerDesk'
 import { FamilyDashboard, InterestForm, RecruitmentAdmin, RecruitmentHome } from './components/RecruitmentPages'
 import { hydrateSharedFamily, hydrateStaffRecruitmentData } from './lib/recruitmentStore'
 import { currentStaffPin, forgetStaffPin, redeemJoiningCode, rememberStaffPin } from './lib/sharedRecruitmentStore'
@@ -47,6 +48,7 @@ export default function App() {
   if (import.meta.env.DEV && route.page === 'family-preview') return <FamilyDashboard familyId="preview-family" navigate={navigate} previewFamily={previewFamily} />
   if (import.meta.env.DEV && route.page === 'joining-preview') return <JoiningJourney familyId="preview-family" cadetId="preview-cadet" navigate={navigate} previewFamily={joiningPreviewFamily} previewStage="fee" />
   if (import.meta.env.DEV && route.page === 'payment-return-preview') return <PaymentReturnPage preview />
+  if (import.meta.env.DEV && route.page === 'direct-joiner-preview') return <main className="mx-auto max-w-3xl px-5 py-10"><DirectJoinerDesk onDataChanged={() => undefined} /></main>
   if (route.page === 'payment-return') return <PaymentReturnPage />
   if (route.page === 'family') return <FamilyDashboard familyId={route.parts[0]} accessToken={route.parts[1] || ''} navigate={navigate} />
   if (route.page === 'staff') return <StaffArea navigate={navigate} />

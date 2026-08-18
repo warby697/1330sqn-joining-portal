@@ -38,3 +38,4 @@ export const saveSharedSetting = (key, value) => request({ action: 'save-setting
 export const changeSharedStaffPin = (newPin) => request({ action: 'change-pin', newPin, pin: currentStaffPin() })
 export const requestFamilyAccess = (email) => request({ action: 'request-family-access', email })
 export const redeemJoiningCode = (email, code) => request({ action: 'redeem-joining-code', email, code })
+export const createDirectJoiner = (details) => request({ action: 'create-direct-joiner', ...details, pin: currentStaffPin() })
