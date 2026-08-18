@@ -122,7 +122,7 @@ const FEE_CONFIRM_RETRY_DELAY_MS = 700
 export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRetry }) {
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
-  const [attemptNumber, setAttemptNumber] = useState(0)
+  const [slow, setSlow] = useState(false)
   const [retryKey, setRetryKey] = useState(0)
   const onDoneRef = useRef(onDone)
   useEffect(() => { onDoneRef.current = onDone }, [onDone])
@@ -130,13 +130,13 @@ export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRet
   useEffect(() => {
     let cancelled = false
     let attempt = 0
+    const slowTimer = setTimeout(() => { if (!cancelled) setSlow(true) }, 1200)
     setError(null)
-    setAttemptNumber(0)
+    setSlow(false)
 
     const tryConfirm = () => {
       attempt += 1
-      setAttemptNumber(attempt)
-      fetch('/api/gocardless/confirm-fee-payment', {
+      fetch('/api/stripe/confirm-fee-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId }),
@@ -158,6 +158,7 @@ export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRet
     tryConfirm()
     return () => {
       cancelled = true
+      clearTimeout(slowTimer)
     }
   }, [sessionId, retryKey])
 
@@ -196,15 +197,18 @@ export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRet
     )
   }
 
+  // The card payment is already settled by the time Stripe sends them back, so this check
+  // takes a moment and then moves on. Showing a progress bar and asking someone to wait for
+  // something that has already happened only makes it feel broken, so nothing is rendered
+  // unless the check genuinely drags.
+  if (!slow) return null
+
   return (
     <Card>
-      <Eyebrow>Joining fee</Eyebrow>
-      <h2 className="text-lg font-semibold text-slate-900 mb-2">Confirming your payment…</h2>
-      <p className="text-sm text-slate-600">Just a moment while we check that's gone through.</p>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Checking payment" aria-valuemin="0" aria-valuemax={FEE_CONFIRM_MAX_ATTEMPTS} aria-valuenow={attemptNumber}>
-        <div className="h-full rounded-full bg-[var(--blue)] transition-all duration-500" style={{ width: `${Math.max(15, (attemptNumber / FEE_CONFIRM_MAX_ATTEMPTS) * 100)}%` }} />
+      <div className="flex items-center gap-3">
+        <span className="h-4 w-4 flex-none animate-spin rounded-full border-2 border-slate-200 border-t-[var(--blue)]" aria-hidden="true" />
+        <p className="text-sm text-slate-600" role="status">Just finishing off your payment…</p>
       </div>
-      <p className="mt-2 text-xs text-slate-500">Your card payment has been taken. This page will continue on its own in a moment.</p>
     </Card>
   )
 }
