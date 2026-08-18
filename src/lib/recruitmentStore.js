@@ -1,6 +1,6 @@
 import { emailPortalUrl, getEmailTemplates, getKeyDates, hydrateCommunicationSettings } from './communicationSettings'
 import { hydrateAdminEmails } from './adminEmails'
-import { createFamilyToken, deleteSharedFamily, loadSharedFamily, loadStaffSnapshot, saveSharedOpenNight, syncFamily } from './sharedRecruitmentStore'
+import { createDirectJoiner, createFamilyToken, deleteSharedFamily, loadSharedFamily, loadStaffSnapshot, saveSharedOpenNight, syncFamily } from './sharedRecruitmentStore'
 
 const STORE_KEY = 'joining-portal:recruitment:v2'
 const RESET_MARKER = 'joining-portal:clean-live-run:v1'
@@ -670,4 +670,44 @@ function isEligibleForNextIntake(cadet, from = new Date()) {
   const nextIntake = intakeCandidates(from)[0]
   const eligibleIntake = getNextEligibleIntake(cadet, from)
   return nextIntake?.getTime() === eligibleIntake?.getTime()
+}
+
+// Direct joiner: staff create the record already unlocked, then email the parent a link
+// straight into the paperwork. The intake date is worked out here because that logic
+// lives client-side, and the server just stores what it is given.
+export async function addDirectJoiner(values) {
+  const provisionalCadet = {
+    dob: values.cadetDob,
+    schoolYear: Number(values.schoolYear),
+    schoolYearRecordedAcademicYear: academicYear(new Date()),
+  }
+  const result = await createDirectJoiner({
+    guardianName: values.guardianName,
+    guardianEmail: values.guardianEmail,
+    guardianMobile: values.guardianMobile,
+    postcode: values.postcode,
+    cadetName: values.cadetName,
+    cadetDob: values.cadetDob,
+    schoolYear: values.schoolYear,
+    schoolYearRecordedAcademicYear: provisionalCadet.schoolYearRecordedAcademicYear,
+    source: values.source || 'Direct',
+    sourceDetail: values.sourceDetail || '',
+    intendedStartDate: getNextEligibleIntake(provisionalCadet).toISOString(),
+  })
+  const base = `${window.location.origin}${window.location.pathname}`
+  const portalUrl = `${base}#/join/${result.familyId}/${result.cadetId}/${result.token}`
+  const template = getEmailTemplates().find((item) => item.id === 'direct_joining_link')
+  const fill = (text) => String(text || '').replace(/{{([a-zA-Z]+)}}/g, (_, key) => ({ parentName: values.guardianName || 'Parent or guardian', cadetName: values.cadetName })[key] ?? '')
+  const email = await fetch('/.netlify/functions/send-direct-joining-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      to: values.guardianEmail,
+      cadetName: values.cadetName,
+      portalUrl,
+      template: template ? { subject: fill(template.subject), body: fill(template.body) } : null,
+    }),
+  })
+  const emailResult = await email.json().catch(() => ({}))
+  return { ...result, portalUrl, emailSent: email.ok, emailError: email.ok ? null : (emailResult.error || 'The email could not be sent.') }
 }

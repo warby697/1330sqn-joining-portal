@@ -29,7 +29,7 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/gocardless/create-fee-payment', {
+      const res = await fetch('/api/stripe/create-fee-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -42,11 +42,11 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Something went wrong starting the payment')
-      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'fee', billingRequestId: data.billingRequestId, returnRoute: window.location.hash }))
-      onStarted(data.billingRequestId)
-      // Single tab: send THIS tab to GoCardless. It handles any bank/QR handover
-      // itself and returns us here, where the confirm step resumes from sessionStorage.
-      if (!data.alreadyAuthorised) window.location.href = data.authorisationUrl
+      sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify({ kind: 'fee', sessionId: data.sessionId, returnRoute: window.location.hash }))
+      onStarted(data.sessionId)
+      // Single tab: send THIS tab to Stripe Checkout. It returns us here, where
+      // the confirm step resumes from sessionStorage.
+      window.location.href = data.authorisationUrl
     } catch (e) {
       setError(e.message)
       setLoading(false)
@@ -65,7 +65,7 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
         <p className="mt-2 text-sm leading-6 text-white/80">A single payment to set up the cadet. You will not be charged this again. The monthly subscription is set up on the next page.</p>
       </div>
       <p className="mb-4 text-sm leading-6 text-slate-600">
-        The joining fee covers the cadet's initial kit issue and account setup. Payment is made securely from your bank through GoCardless. No card details are required.
+        The joining fee covers the cadet's initial kit issue and account setup. Payment is taken securely by card through Stripe. You can use a debit or credit card, Apple Pay or Google Pay.
       </p>
       <div className="rounded-lg bg-slate-100 px-4 py-2.5 text-sm font-mono text-slate-700 mb-4">
         Reference: <strong>{ref}</strong>
@@ -83,7 +83,7 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
           disabled={loading}
           className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-60"
         >
-          {loading ? 'One moment…' : `Pay ${FEE_LABEL} via GoCardless`}
+          {loading ? 'One moment…' : `Pay ${FEE_LABEL} by card`}
         </button>
       </div>
       {error && (
@@ -113,7 +113,7 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
 const CONFIRM_MAX_ATTEMPTS = 73
 const CONFIRM_RETRY_DELAY_MS = 2500
 
-export function FeeConfirmStep({ billingRequestId, onDone, onContinueUnconfirmed, onRetry }) {
+export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRetry }) {
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
   const [attemptNumber, setAttemptNumber] = useState(0)
@@ -133,7 +133,7 @@ export function FeeConfirmStep({ billingRequestId, onDone, onContinueUnconfirmed
       fetch('/api/gocardless/confirm-fee-payment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ billingRequestId }),
+        body: JSON.stringify({ sessionId }),
       })
         .then(async (res) => {
           const data = await res.json()
@@ -153,7 +153,7 @@ export function FeeConfirmStep({ billingRequestId, onDone, onContinueUnconfirmed
     return () => {
       cancelled = true
     }
-  }, [billingRequestId, retryKey])
+  }, [sessionId, retryKey])
 
   if (error) {
     return (

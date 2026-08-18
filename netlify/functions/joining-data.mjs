@@ -113,6 +113,66 @@ export default async (request) => {
       return json({ family, token, cadetId: cadet.id })
     }
 
+    // Direct joiner: a family who is skipping the open night entirely. Staff create the
+    // record already verified and already unlocked, so the emailed link drops the parent
+    // straight into the paperwork. attendedAt is what every downstream gate keys off, so
+    // it is set here even though there was no open night to attend.
+    if (body.action === 'create-direct-joiner') {
+      if (!(await staffAllowed(body.pin, db, request))) return json({ error: 'Not authorised.' }, 401)
+      const email = normalEmail(body.guardianEmail)
+      const cadetName = String(body.cadetName || '').trim()
+      if (!email || !cadetName) return json({ error: 'A guardian email and cadet name are required.' }, 400)
+
+      const existing = await families.where('guardian.email', '==', email).limit(1).get()
+      if (!existing.empty) return json({ error: 'An enquiry already exists for that email address. Open it from the pipeline instead.' }, 409)
+
+      const now = new Date().toISOString()
+      const token = newToken()
+      const suffix = () => `${Date.now().toString(36)}-${randomBytes(3).toString('hex').slice(0, 5)}`
+      const cadetId = `cadet-${suffix()}`
+      const familyId = `family-${suffix()}`
+      const joiningCode = Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)).join('')
+      const family = {
+        id: familyId,
+        createdAt: now,
+        updatedAt: now,
+        source: body.source || 'Direct',
+        sourceDetail: String(body.sourceDetail || '').trim(),
+        submittedBy: 'staff',
+        directJoiner: true,
+        guardian: {
+          fullName: String(body.guardianName || '').trim(),
+          email,
+          mobile: String(body.guardianMobile || '').trim(),
+          postcode: String(body.postcode || '').trim().toUpperCase(),
+          verifiedAt: now,
+        },
+        cadets: [{
+          id: cadetId,
+          fullName: cadetName,
+          dob: String(body.cadetDob || ''),
+          schoolYear: Number(body.schoolYear) || null,
+          schoolYearRecordedAcademicYear: Number(body.schoolYearRecordedAcademicYear) || null,
+          status: 'paperwork_in_progress',
+          openNightId: null,
+          bookedAt: null,
+          attendedAt: now,
+          openNightAttendanceStatus: null,
+          joiningCode,
+          joiningCodeExpiresAt: null,
+          joiningCodeUsedAt: now,
+          paperworkStatus: 'in_progress',
+          intendedStartDate: body.intendedStartDate || null,
+        }],
+        communicationsConsent: Boolean(body.communicationsConsent),
+        dataTermsAcceptedAt: null,
+        verificationCode: null,
+        notes: [{ id: `note-${suffix()}`, createdAt: now, author: 'Staff', text: 'Direct joiner: added by staff without an open night. Paperwork unlocked on creation.' }],
+      }
+      await families.doc(familyId).set({ ...family, accessToken: token, accessTokenHash: hash(token), serverUpdatedAt: FieldValue.serverTimestamp() })
+      return json({ family, familyId, cadetId, token })
+    }
+
     if (body.action === 'sync-family') {
       const family = cleanFamily(body.family)
       const familyId = String(family.id || '')

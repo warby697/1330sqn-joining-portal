@@ -64,7 +64,7 @@ export default async () => {
       const startDate = cadet.intendedStartDate ? new Date(cadet.intendedStartDate) : null
       const verified = family.guardian?.verifiedAt ? new Date(family.guardian.verifiedAt) : null
       const candidates = [
-        { id: 'booking_nudge', when: verified && !cadet.openNightId ? new Date(verified.getTime() + 2 * day) : null },
+        { id: 'booking_nudge', when: verified && !cadet.openNightId && !cadet.attendedAt ? new Date(verified.getTime() + 2 * day) : null },
         { id: 'open_night_reminder', when: eventDate && !attended ? new Date(eventDate.getTime() - Number(settings.reminderDaysBefore || 7) * day) : null },
         { id: 'open_night_final_reminder', when: eventDate && !attended ? new Date(eventDate.getTime() - Number(settings.finalReminderHoursBefore || 24) * hour) : null },
         { id: 'paperwork_reminder', when: attended && cadet.paperworkStatus !== 'completed' ? new Date(attended.getTime() + 7 * day) : null },

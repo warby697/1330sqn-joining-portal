@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AdminSettingsPanel } from './AdminSettings'
 import AdminCommunications from './AdminCommunications'
+import DirectJoinerDesk from './DirectJoinerDesk'
 import {
   OPEN_NIGHTS, OPEN_NIGHT_ADDRESS, addCadetToFamily, addStaffNote, bookOpenNight, createEnquiry, deleteCadetEnquiry, formatDate,
   getCommunicationSchedule, getFamily, getOpenNightManagement, getOpenNightRoster, hasMissedIntake, hydrateSharedFamily, hydrateStaffRecruitmentData, joiningCodeExpired, listFamilies, markAttended, messagesForFamily, persistFamily, removeCachedFamily, setCadetStatus,
@@ -536,9 +537,10 @@ export function RecruitmentAdmin({ navigate, initialWorkspace = 'pipeline', onLo
   const conversion = decided ? Math.round((counts.joined / decided) * 100) : 0
   return <Page wide>
     <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-[var(--blue)]">Staff workspace</p><h1 className="mt-1 text-3xl font-semibold text-slate-900">Recruitment</h1></div><div className="flex flex-col items-end gap-3"><button onClick={() => navigate('interest')} className={primary}>Capture enquiry</button><button onClick={onLogout} className="text-xs font-medium text-slate-400 hover:text-slate-600 hover:underline">Log out</button></div></div>
-    <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setWorkspace('pipeline')} className={workspace === 'pipeline' ? primary : secondary}>Recruitment pipeline</button><button type="button" onClick={() => setWorkspace('open-nights')} className={workspace === 'open-nights' ? primary : secondary}>Open Night desk</button><button type="button" onClick={() => setWorkspace('communications')} className={workspace === 'communications' ? primary : secondary}>Emails and key dates</button><button type="button" onClick={() => setWorkspace('settings')} className={workspace === 'settings' ? primary : secondary}>Settings</button></div>
+    <div className="mt-5 flex flex-wrap gap-2"><button type="button" onClick={() => setWorkspace('pipeline')} className={workspace === 'pipeline' ? primary : secondary}>Recruitment pipeline</button><button type="button" onClick={() => setWorkspace('open-nights')} className={workspace === 'open-nights' ? primary : secondary}>Open Night desk</button><button type="button" onClick={() => setWorkspace('direct-joiner')} className={workspace === 'direct-joiner' ? primary : secondary}>Direct joiner</button><button type="button" onClick={() => setWorkspace('communications')} className={workspace === 'communications' ? primary : secondary}>Emails and key dates</button><button type="button" onClick={() => setWorkspace('settings')} className={workspace === 'settings' ? primary : secondary}>Settings</button></div>
     {workspace === 'open-nights' && <OpenNightDesk onDataChanged={refresh} />}
     {workspace === 'settings' && <AdminSettingsPanel />}
+    {workspace === 'direct-joiner' && <DirectJoinerDesk onDataChanged={refresh} />}
     {workspace === 'communications' && <AdminCommunications />}
     {workspace === 'pipeline' && <>
     <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{[['Total prospects', counts.total], ['Awaiting parent', counts.awaiting], ['Open nights booked', counts.booked], ['Paperwork unlocked', counts.paperwork], ['Missed intake', counts.missed], ['Withdrawn / lost', counts.withdrawn]].map(([label, value]) => <div key={label} className={`rounded-2xl border bg-white p-4 ${label === 'Missed intake' && value ? 'border-red-300' : 'border-slate-200'}`}><p className="text-xs text-slate-500">{label}</p><p className={`mt-1 text-2xl font-semibold ${label === 'Missed intake' && value ? 'text-red-700' : 'text-slate-900'}`}>{value}</p></div>)}</div>
