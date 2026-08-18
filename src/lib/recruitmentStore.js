@@ -685,22 +685,30 @@ function isEligibleForNextIntake(cadet, from = new Date()) {
 export async function addDirectJoiner(values) {
   // Staff only supply parent name, parent email and cadet name. Everything else
   // (DOB, school year, mobile, address) is collected from the parent in the 3822A.
+  const cadetNames = (Array.isArray(values.cadetNames) ? values.cadetNames : [values.cadetName])
+    .map((name) => String(name || '').trim())
+    .filter(Boolean)
   const result = await createDirectJoiner({
     guardianName: values.guardianName,
     guardianEmail: values.guardianEmail,
-    cadetName: values.cadetName,
+    cadetNames,
     intendedStartDate: getNextIntake().toISOString(),
   })
+  // Siblings share one link. It opens the first cadet, and finishing that form hands the
+  // parent straight on to the next one.
+  const cadetLabel = cadetNames.length > 1
+    ? `${cadetNames.slice(0, -1).join(', ')} and ${cadetNames[cadetNames.length - 1]}`
+    : cadetNames[0] || ''
   const base = `${window.location.origin}${window.location.pathname}`
   const portalUrl = `${base}#/join/${result.familyId}/${result.cadetId}/${result.token}`
   const template = getEmailTemplates().find((item) => item.id === 'direct_joining_link')
-  const fill = (text) => String(text || '').replace(/{{([a-zA-Z]+)}}/g, (_, key) => ({ parentName: values.guardianName || 'Parent or guardian', cadetName: values.cadetName })[key] ?? '')
+  const fill = (text) => String(text || '').replace(/{{([a-zA-Z]+)}}/g, (_, key) => ({ parentName: values.guardianName || 'Parent or guardian', cadetName: cadetLabel })[key] ?? '')
   const email = await fetch('/.netlify/functions/send-direct-joining-link', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       to: values.guardianEmail,
-      cadetName: values.cadetName,
+      cadetName: cadetLabel,
       portalUrl,
       template: template ? { subject: fill(template.subject), body: fill(template.body) } : null,
     }),

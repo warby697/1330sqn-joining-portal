@@ -139,8 +139,14 @@ export default async (request) => {
     if (body.action === 'create-direct-joiner') {
       if (!(await staffAllowed(body.pin, db, request))) return json({ error: 'Not authorised.' }, 401)
       const email = normalEmail(body.guardianEmail)
-      const cadetName = String(body.cadetName || '').trim()
-      if (!email || !cadetName) return json({ error: 'A guardian email and cadet name are required.' }, 400)
+      // Siblings joining together share one family record, which is how the paperwork
+      // chains one 3822 into the next. Two separate enquiries would make her fill in her
+      // own details twice and split the family in the pipeline.
+      const names = (Array.isArray(body.cadetNames) ? body.cadetNames : [body.cadetName])
+        .map((name) => String(name || '').trim())
+        .filter(Boolean)
+      const uniqueNames = names.filter((name, index) => names.findIndex((other) => other.toLowerCase() === name.toLowerCase()) === index)
+      if (!email || !uniqueNames.length) return json({ error: 'A guardian email and at least one cadet name are required.' }, 400)
 
       const existing = await families.where('guardian.email', '==', email).limit(1).get()
       if (!existing.empty) return json({ error: 'An enquiry already exists for that email address. Open it from the pipeline instead.' }, 409)
@@ -148,9 +154,25 @@ export default async (request) => {
       const now = new Date().toISOString()
       const token = newToken()
       const suffix = () => `${Date.now().toString(36)}-${randomBytes(3).toString('hex').slice(0, 5)}`
-      const cadetId = `cadet-${suffix()}`
       const familyId = `family-${suffix()}`
       const joiningCode = Array.from({ length: 4 }, () => Math.floor(Math.random() * 10)).join('')
+      const cadets = uniqueNames.map((fullName) => ({
+        id: `cadet-${suffix()}`,
+        fullName,
+        dob: '',
+        schoolYear: null,
+        schoolYearRecordedAcademicYear: null,
+        status: 'paperwork_in_progress',
+        openNightId: null,
+        bookedAt: null,
+        attendedAt: now,
+        openNightAttendanceStatus: null,
+        joiningCode,
+        joiningCodeExpiresAt: null,
+        joiningCodeUsedAt: now,
+        paperworkStatus: 'in_progress',
+        intendedStartDate: body.intendedStartDate || null,
+      }))
       const family = {
         id: familyId,
         createdAt: now,
@@ -166,30 +188,14 @@ export default async (request) => {
           postcode: String(body.postcode || '').trim().toUpperCase(),
           verifiedAt: now,
         },
-        cadets: [{
-          id: cadetId,
-          fullName: cadetName,
-          dob: String(body.cadetDob || ''),
-          schoolYear: Number(body.schoolYear) || null,
-          schoolYearRecordedAcademicYear: Number(body.schoolYearRecordedAcademicYear) || null,
-          status: 'paperwork_in_progress',
-          openNightId: null,
-          bookedAt: null,
-          attendedAt: now,
-          openNightAttendanceStatus: null,
-          joiningCode,
-          joiningCodeExpiresAt: null,
-          joiningCodeUsedAt: now,
-          paperworkStatus: 'in_progress',
-          intendedStartDate: body.intendedStartDate || null,
-        }],
+        cadets,
         communicationsConsent: Boolean(body.communicationsConsent),
         dataTermsAcceptedAt: null,
         verificationCode: null,
         notes: [{ id: `note-${suffix()}`, createdAt: now, author: 'Staff', text: 'Direct joiner: added by staff without an open night. Paperwork unlocked on creation.' }],
       }
       await families.doc(familyId).set({ ...family, accessToken: token, accessTokenHash: hash(token), serverUpdatedAt: FieldValue.serverTimestamp() })
-      return json({ family, familyId, cadetId, token })
+      return json({ family, familyId, cadetId: cadets[0].id, cadetIds: cadets.map((cadet) => cadet.id), token })
     }
 
     // Paperwork progress and payment state, saved as the parent works through the Form 3822.

@@ -12,6 +12,26 @@ import { resolveFormData, resolveStage } from '../lib/paperworkResume'
 
 const inputClass = 'mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20'
 
+// Answers that belong to the family rather than the child, so a second sibling does not
+// make a parent retype their own details. Everything else is deliberately left out:
+// health and consent answers are about one specific child, and each form needs its own
+// signature. Payment fields must never carry across either, or the second cadet would
+// look already paid for. This is per cadet: siblings pay their own fee and subs.
+const SHARED_WITH_SIBLINGS = ['parent1.', 'parent2.', 'hasSecondContact']
+
+function sharedSiblingAnswers(family, cadet) {
+  const siblings = (family?.cadets || []).filter((item) => item.id !== cadet?.id)
+  // Whichever sibling has got furthest is the best source.
+  const source = siblings
+    .map((item) => item.paperworkProgress)
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0]
+  if (!source?.formData) return {}
+  return Object.fromEntries(
+    Object.entries(source.formData).filter(([key]) => SHARED_WITH_SIBLINGS.some((prefix) => key.startsWith(prefix)))
+  )
+}
+
 function initialFormData(family, cadet) {
   if (!family || !cadet) return {}
   return {
@@ -21,6 +41,9 @@ function initialFormData(family, cadet) {
     'parent1.primaryEmail': family.guardian.email,
     'parent1.mobile': family.guardian.mobile,
     'parent1.address.postcode': family.guardian.postcode,
+    // After the guardian record, so what a parent actually typed on the sibling's form
+    // wins over the sparser details held against the family.
+    ...sharedSiblingAnswers(family, cadet),
     'meta.familyId': family.id,
     'meta.cadetId': cadet.id,
     'meta.openNightAttendedAt': cadet.attendedAt,
