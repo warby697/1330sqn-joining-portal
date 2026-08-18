@@ -173,6 +173,48 @@ export default async (request) => {
       return json({ family, familyId, cadetId, token })
     }
 
+    // Paperwork progress and payment state, saved as the parent works through the Form 3822.
+    // Deliberately NOT sync-family: that overwrites the whole document, so a parent posting a
+    // half-loaded copy could wipe staff edits. This touches only the one cadet, inside a
+    // transaction, and only the progress and payment fields.
+    //
+    // The payment record matters most. Without it a parent who has already paid and then
+    // closes the tab is asked to pay a second time.
+    if (body.action === 'save-paperwork-progress') {
+      const familyId = String(body.familyId || '')
+      const cadetId = String(body.cadetId || '')
+      const token = String(body.token || '')
+      if (!familyId || !cadetId || token.length < 20) return json({ error: 'Paperwork access details are missing.' }, 400)
+      const ref = families.doc(familyId)
+      const saved = await db.runTransaction(async (transaction) => {
+        const current = await transaction.get(ref)
+        if (!current.exists) throw new Error('NOT_FOUND')
+        if (!same(current.get('accessTokenHash'), hash(token))) throw new Error('NOT_AUTHORISED')
+        const cadets = current.get('cadets') || []
+        const index = cadets.findIndex((item) => item.id === cadetId)
+        if (index === -1) throw new Error('NOT_FOUND')
+        const cadet = { ...cadets[index] }
+        if (body.progress && typeof body.progress === 'object') {
+          cadet.paperworkProgress = {
+            stage: String(body.progress.stage || ''),
+            wizardIndex: Number(body.progress.wizardIndex) || 0,
+            formData: body.progress.formData && typeof body.progress.formData === 'object' ? body.progress.formData : {},
+            updatedAt: new Date().toISOString(),
+          }
+        }
+        if (body.payment && typeof body.payment === 'object') {
+          cadet.payments = {
+            ...(cadet.payments || {}),
+            ...(body.payment.fee ? { fee: { ...body.payment.fee, recordedAt: new Date().toISOString() } } : {}),
+            ...(body.payment.subs ? { subs: { ...body.payment.subs, recordedAt: new Date().toISOString() } } : {}),
+          }
+        }
+        cadets[index] = cadet
+        transaction.update(ref, { cadets, updatedAt: new Date().toISOString(), serverUpdatedAt: FieldValue.serverTimestamp() })
+        return true
+      })
+      return json({ saved })
+    }
     if (body.action === 'sync-family') {
       const family = cleanFamily(body.family)
       const familyId = String(family.id || '')
@@ -274,6 +316,7 @@ export default async (request) => {
     return json({ error: 'Unknown action.' }, 400)
   } catch (error) {
     if (error?.message === 'NOT_AUTHORISED') return json({ error: 'Not authorised.' }, 401)
+    if (error?.message === 'NOT_FOUND') return json({ error: 'That joining record could not be found.' }, 404)
     if (error?.message === 'DELETED_FAMILY') return json({ error: 'This application has been deleted and cannot be restored by an old browser session.' }, 410)
     console.error('Joining data request failed:', error)
     return json({ error: 'The joining database request failed.' }, 500)

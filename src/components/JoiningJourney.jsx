@@ -7,6 +7,8 @@ import { steps3822A } from '../lib/steps3822A'
 import { steps3822H } from '../lib/steps3822H'
 import { buildReference } from '../lib/reference'
 import { getFamily, markPaperworkComplete, validateJoiningCode } from '../lib/recruitmentStore'
+import { savePaperworkProgress } from '../lib/sharedRecruitmentStore'
+import { resolveFormData, resolveStage } from '../lib/paperworkResume'
 
 const inputClass = 'mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-[var(--blue)] focus:ring-2 focus:ring-[var(--blue)]/20'
 
@@ -33,9 +35,12 @@ export default function JoiningJourney({ familyId, cadetId, navigate, previewFam
   const directJoiner = Boolean(cadet && !cadet.openNightId)
   const sessionKey = `joining-portal:paperwork:${cadetId || 'unknown'}`
   const saved = previewFamily ? null : (() => { try { return JSON.parse(sessionStorage.getItem(sessionKey) || 'null') } catch { return null } })()
-  const [stage, setStage] = useState(previewStage || saved?.stage || (cadet?.paperworkStatus === 'in_progress' ? 'welcome' : 'gate'))
-  const [wizardIndex, setWizardIndex] = useState(saved?.wizardIndex || 0)
-  const [formData, setFormData] = useState(saved?.formData || initialFormData(family, cadet))
+  // See paperworkResume: the tab's copy wins, the record is the fallback, and anyone who has
+  // already paid is kept away from the fee page.
+  const resumeCadet = previewFamily ? null : cadet
+  const [stage, setStage] = useState(() => resolveStage(saved, resumeCadet, previewStage))
+  const [wizardIndex, setWizardIndex] = useState((saved || resumeCadet?.paperworkProgress)?.wizardIndex || 0)
+  const [formData, setFormData] = useState(() => resolveFormData(saved, resumeCadet, initialFormData(family, cadet)))
   const [pendingPaymentId, setPendingPaymentId] = useState(null)
   const [blocked, setBlocked] = useState(null)
   const savedAtLoad = useRef(saved)
@@ -69,6 +74,17 @@ export default function JoiningJourney({ familyId, cadetId, navigate, previewFam
     sessionStorage.setItem(sessionKey, JSON.stringify({ stage, wizardIndex, formData, stepOrderVersion: 2 }))
   }, [sessionKey, stage, wizardIndex, formData, previewFamily])
 
+  // sessionStorage stays the fast local copy; this mirrors it onto the record so the journey
+  // survives losing the tab. Best effort and debounced, so a blip never blocks the parent.
+  const portalToken = family?._portalToken || ''
+  useEffect(() => {
+    if (previewFamily || !portalToken || !familyId || !cadetId || stage === 'gate') return
+    const timer = setTimeout(() => {
+      savePaperworkProgress(familyId, cadetId, portalToken, { progress: { stage, wizardIndex, formData } }).catch(() => undefined)
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [previewFamily, portalToken, familyId, cadetId, stage, wizardIndex, formData])
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }, [stage, wizardIndex])
@@ -90,6 +106,19 @@ export default function JoiningJourney({ familyId, cadetId, navigate, previewFam
   const familyRoute = `family/${family?.id}${family?._portalToken ? `/${family._portalToken}` : ''}`
   const joiningRoute = (nextCadetId) => `join/${family?.id}/${nextCadetId}${family?._portalToken ? `/${family._portalToken}` : ''}`
   if (!family || !cadet) return <div className="min-h-screen"><Header subtitle="Joining paperwork" /><main className="mx-auto max-w-lg px-5 py-8"><div className="rounded-2xl bg-white p-6"><h1 className="text-xl font-semibold">Joining record not found</h1><button onClick={() => navigate('')} className="mt-4 rounded-lg bg-[var(--blue)] px-5 py-2.5 text-sm font-semibold text-white">Back to recruitment</button></div></main></div>
+
+  // Written the moment a payment confirms, and awaited, because this is the only durable
+  // proof the parent paid. Without it, losing the tab means being asked to pay again.
+  // Deliberately swallows failures: the money has already left their account, so nothing
+  // here should ever block them from finishing.
+  const recordPayment = async (payment) => {
+    if (previewFamily || !portalToken || !familyId || !cadetId) return
+    try {
+      await savePaperworkProgress(familyId, cadetId, portalToken, { payment })
+    } catch (error) {
+      console.error('Could not record the payment against the joining record:', error)
+    }
+  }
 
   const update = (patch) => { setFormData((current) => ({ ...current, ...patch })); setBlocked(null) }
   const goNext = () => {
@@ -115,9 +144,9 @@ export default function JoiningJourney({ familyId, cadetId, navigate, previewFam
     {stage === 'welcome' && <section className="border-2 border-[var(--navy)] bg-white p-7"><p className="text-sm font-semibold text-[var(--blue)]">{directJoiner ? 'Joining paperwork unlocked' : 'Open Night attendance confirmed'}</p><h1 className="mt-2 text-2xl font-semibold text-slate-900">{directJoiner ? 'Thank you for enquiring' : 'Thank you for attending'}</h1><p className="mt-3 text-slate-700">We are glad that <strong>{cadet.fullName || 'your cadet'}</strong> would like to start with 1330 Squadron.</p><p className="mt-3 text-sm leading-6 text-slate-600">{directJoiner ? 'The next section is the formal joining paperwork.' : 'The joining code has been accepted and will not be requested again. The next section is the formal joining paperwork.'} Parent and cadet details already held by the Squadron will be carried into the forms for checking.</p>{otherEligibleCadets.length > 0 && <div className="mt-5 rounded-xl border border-[var(--gold)] bg-[var(--gold-soft)] p-4 text-sm text-slate-700"><p className="font-semibold text-[var(--navy)]">You have {family.cadets.length} cadets linked to this family</p><p className="mt-1">Complete this form for <strong>{cadet.fullName}</strong> first. You will then be prompted to complete a separate form for {otherEligibleCadets.map((item) => item.fullName).join(' and ')}. Shared parent details will be filled in for you.</p></div>}<button type="button" onClick={() => setStage('wizard')} className="mt-6 w-full rounded-lg bg-[var(--blue)] py-3 text-sm font-semibold text-white">Continue to {cadet.fullName || 'cadet'}'s joining forms</button></section>}
     {stage === 'wizard' && <form onSubmit={(event) => { event.preventDefault(); goNext() }}><ProgressBar index={wizardIndex} total={steps.length} label={step.form || 'Form 3822A'} /><div className="mb-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h2>{step.subtitle && <p className="text-sm text-slate-500 mb-5">{step.subtitle}</p>}<StepScreen step={step} formData={formData} update={update} /></div>{blocked && <p className="mb-4 rounded-lg bg-[var(--gold-soft)] px-4 py-2.5 text-sm text-[var(--amber)]">{blocked}</p>}<div className="flex gap-3"><button type="button" onClick={() => { setBlocked(null); if (wizardIndex > 0) setWizardIndex((value) => value - 1) }} disabled={wizardIndex === 0} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-40">Back</button><button type="submit" className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white">Continue</button></div></form>}
     {stage === 'fee' && <FeeStep formData={formData} onStarted={(feeSessionId) => { setPendingPaymentId(feeSessionId); update({ 'payment.feeBillingRequestId': feeSessionId }); setStage('fee-confirming') }} onBack={() => setStage('wizard')} onSkip={() => { update({ 'payment.feeStatus': 'unconfirmed' }); setStage('subs') }} />}
-    {stage === 'fee-confirming' && <FeeConfirmStep sessionId={pendingPaymentId} onDone={(result) => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.feeStatus': 'paid', 'payment.feeBillingRequestId': pendingPaymentId, 'payment.feePaymentId': result?.paymentId || '' }); setStage('subs') }} onContinueUnconfirmed={() => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.feeStatus': 'unconfirmed', 'payment.feeBillingRequestId': pendingPaymentId }); setStage('subs') }} onRetry={() => setStage('fee')} />}
+    {stage === 'fee-confirming' && <FeeConfirmStep sessionId={pendingPaymentId} onDone={async (result) => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.feeStatus': 'paid', 'payment.feeBillingRequestId': pendingPaymentId, 'payment.feePaymentId': result?.paymentId || '' }); await recordPayment({ fee: { status: 'paid', sessionId: pendingPaymentId, paymentId: result?.paymentId || '' } }); setStage('subs') }} onContinueUnconfirmed={() => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.feeStatus': 'unconfirmed', 'payment.feeBillingRequestId': pendingPaymentId }); setStage('subs') }} onRetry={() => setStage('fee')} />}
     {stage === 'subs' && <SubsStep formData={formData} onStarted={(billingRequestId) => { setPendingPaymentId(billingRequestId); update({ 'payment.subsBillingRequestId': billingRequestId }); setStage('subs-confirming') }} onBack={() => setStage('fee')} onSkip={() => { update({ 'payment.subsStatus': 'unconfirmed' }); setStage('gift-aid') }} />}
-    {stage === 'subs-confirming' && <SubsConfirmStep billingRequestId={pendingPaymentId} reference={buildReference(formData)} startDate={formData['meta.intendedStartDate']} onDone={(result) => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.subsStatus': 'active', 'payment.subsBillingRequestId': pendingPaymentId, 'payment.mandateId': result?.mandateId || '', 'payment.subscriptionId': result?.subscriptionId || '' }); setStage('gift-aid') }} onContinueUnconfirmed={() => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.subsStatus': 'unconfirmed', 'payment.subsBillingRequestId': pendingPaymentId }); setStage('gift-aid') }} onRetry={() => setStage('subs')} />}
+    {stage === 'subs-confirming' && <SubsConfirmStep billingRequestId={pendingPaymentId} reference={buildReference(formData)} startDate={formData['meta.intendedStartDate']} onDone={async (result) => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.subsStatus': 'active', 'payment.subsBillingRequestId': pendingPaymentId, 'payment.mandateId': result?.mandateId || '', 'payment.subscriptionId': result?.subscriptionId || '' }); await recordPayment({ subs: { status: 'active', billingRequestId: pendingPaymentId, mandateId: result?.mandateId || '', subscriptionId: result?.subscriptionId || '' } }); setStage('gift-aid') }} onContinueUnconfirmed={() => { sessionStorage.removeItem(PENDING_PAYMENT_KEY); update({ 'payment.subsStatus': 'unconfirmed', 'payment.subsBillingRequestId': pendingPaymentId }); setStage('gift-aid') }} onRetry={() => setStage('subs')} />}
     {stage === 'gift-aid' && <GiftAidStep formData={formData} update={update} onBack={() => setStage('subs')} onDone={() => setStage('done')} />}
     {stage === 'done' && <DoneStep formData={formData} nextCadetName={otherEligibleCadets[0]?.fullName || ''} onBackToGiftAid={() => setStage('gift-aid')} onComplete={async () => { if (!previewFamily) { await markPaperworkComplete(family.id, cadet.id); sessionStorage.removeItem(sessionKey); navigate(otherEligibleCadets.length ? joiningRoute(otherEligibleCadets[0].id) : familyRoute) } }} />}
   </main></div>

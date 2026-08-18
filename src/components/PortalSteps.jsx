@@ -113,6 +113,12 @@ export function FeeStep({ formData, onStarted, onSkip, onBack }) {
 const CONFIRM_MAX_ATTEMPTS = 73
 const CONFIRM_RETRY_DELAY_MS = 2500
 
+// The fee is a Stripe card payment, which is already settled by the time the parent is
+// redirected back, so it confirms on the first try. These only exist to cover a slow
+// redirect or a momentary network blip, hence the short gap and the short overall window.
+const FEE_CONFIRM_MAX_ATTEMPTS = 12
+const FEE_CONFIRM_RETRY_DELAY_MS = 700
+
 export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRetry }) {
   const [error, setError] = useState(null)
   const [ack, setAck] = useState(false)
@@ -142,8 +148,8 @@ export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRet
         })
         .catch((e) => {
           if (cancelled) return
-          if (attempt < CONFIRM_MAX_ATTEMPTS) {
-            setTimeout(tryConfirm, CONFIRM_RETRY_DELAY_MS)
+          if (attempt < FEE_CONFIRM_MAX_ATTEMPTS) {
+            setTimeout(tryConfirm, FEE_CONFIRM_RETRY_DELAY_MS)
           } else {
             setError(e.message)
           }
@@ -195,10 +201,10 @@ export function FeeConfirmStep({ sessionId, onDone, onContinueUnconfirmed, onRet
       <Eyebrow>Joining fee</Eyebrow>
       <h2 className="text-lg font-semibold text-slate-900 mb-2">Confirming your payment…</h2>
       <p className="text-sm text-slate-600">Just a moment while we check that's gone through.</p>
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Checking payment" aria-valuemin="0" aria-valuemax={CONFIRM_MAX_ATTEMPTS} aria-valuenow={attemptNumber}>
-        <div className="h-full rounded-full bg-[var(--blue)] transition-all duration-500" style={{ width: `${Math.max(8, (attemptNumber / CONFIRM_MAX_ATTEMPTS) * 100)}%` }} />
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Checking payment" aria-valuemin="0" aria-valuemax={FEE_CONFIRM_MAX_ATTEMPTS} aria-valuenow={attemptNumber}>
+        <div className="h-full rounded-full bg-[var(--blue)] transition-all duration-500" style={{ width: `${Math.max(15, (attemptNumber / FEE_CONFIRM_MAX_ATTEMPTS) * 100)}%` }} />
       </div>
-      <p className="mt-2 text-xs text-slate-500">Complete the payment in the bank window or app. This page will continue automatically and can wait for up to three minutes.</p>
+      <p className="mt-2 text-xs text-slate-500">Your card payment has been taken. This page will continue on its own in a moment.</p>
     </Card>
   )
 }
