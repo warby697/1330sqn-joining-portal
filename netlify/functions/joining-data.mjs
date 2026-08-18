@@ -33,6 +33,25 @@ const cleanFamily = (family) => {
   delete value._portalToken
   return value
 }
+// Written only by the server, from save-paperwork-progress. A browser can hold a copy of the
+// family that predates the last payment, and sync-family replaces the whole document, so
+// without this a stale client finishing the paperwork silently wipes the record of money
+// already taken. Same clobber that has bitten the squadron records before.
+const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress']
+const keepServerOwnedFields = (incomingCadets, storedCadets) => {
+  const stored = new Map((storedCadets || []).map((cadet) => [cadet.id, cadet]))
+  return (incomingCadets || []).map((cadet) => {
+    const previous = stored.get(cadet.id)
+    if (!previous) return cadet
+    const merged = { ...cadet }
+    for (const field of SERVER_OWNED_CADET_FIELDS) {
+      if (previous[field] === undefined) delete merged[field]
+      else merged[field] = previous[field]
+    }
+    return merged
+  })
+}
+
 const newToken = () => randomBytes(24).toString('hex')
 const normalEmail = (value) => String(value || '').trim().toLowerCase()
 const clientAddress = (request) => String(request.headers.get('x-nf-client-connection-ip') || request.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim()
@@ -229,6 +248,7 @@ export default async (request) => {
         if (current.exists && !same(current.get('accessTokenHash'), hash(token)) && !staffAuthorised) throw new Error('NOT_AUTHORISED')
         transaction.set(ref, {
           ...family,
+          cadets: keepServerOwnedFields(family.cadets, current.exists ? current.get('cadets') : []),
           accessTokenHash: current.exists ? current.get('accessTokenHash') : hash(token),
           accessToken: current.exists ? current.get('accessToken') : token,
           serverUpdatedAt: FieldValue.serverTimestamp(),
