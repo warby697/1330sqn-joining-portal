@@ -4,7 +4,7 @@ import { test } from 'vitest'
 // Mirrors keepServerOwnedFields in netlify/functions/joining-data.mjs. The real one runs
 // inside a Firestore transaction, so this covers the merge rule itself: the part that
 // decides whether a stale browser can wipe a recorded payment.
-const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress']
+const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress', 'joiningFormSentAt']
 const keepServerOwnedFields = (incomingCadets, storedCadets) => {
   const stored = new Map((storedCadets || []).map((cadet) => [cadet.id, cadet]))
   return (incomingCadets || []).map((cadet) => {
@@ -65,4 +65,11 @@ test('other cadets in the family are matched individually', () => {
   assert.equal(sibling.status, 'withdrawn')
   assert.equal(sibling.payments, undefined)
   assert.deepEqual(first.payments, stored[0].payments)
+})
+
+test('the joining-form sent flag cannot be cleared by a client, so the email stays once per cadet', () => {
+  const stored = [{ id: 'cadet-1', joiningFormSentAt: '2026-08-21T16:50:00.000Z' }]
+  const incoming = [{ id: 'cadet-1', paperworkStatus: 'completed' }]
+  const [result] = keepServerOwnedFields(incoming, stored)
+  assert.equal(result.joiningFormSentAt, '2026-08-21T16:50:00.000Z')
 })

@@ -382,6 +382,52 @@ export default async (req) => {
     })
   }
 
+  // One completed form, one email. The done page sends on mount, and now that progress is
+  // restored a parent returning to their link lands back on it, so this fired six times for
+  // one cadet and copied the parent on every one. The claim lives on the record rather than
+  // in the browser, because the browser is exactly what keeps being re-created here.
+  const familyId = String(formData['meta.familyId'] || '')
+  const cadetId = String(formData['meta.cadetId'] || '')
+  let releaseClaim = null
+  if (familyId && cadetId) {
+    const db = joiningPortalDb()
+    const ref = db.collection(joiningPortalCollections.families).doc(familyId)
+    try {
+      const claimed = await db.runTransaction(async (transaction) => {
+        const current = await transaction.get(ref)
+        if (!current.exists) return true
+        const cadets = current.get('cadets') || []
+        const index = cadets.findIndex((item) => item.id === cadetId)
+        if (index === -1) return true
+        if (cadets[index].joiningFormSentAt) return false
+        cadets[index] = { ...cadets[index], joiningFormSentAt: new Date().toISOString() }
+        transaction.update(ref, { cadets })
+        return true
+      })
+      if (!claimed) {
+        return new Response(JSON.stringify({ ok: true, alreadySent: true }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      // Claimed before sending so two quick mounts cannot both get through. If the send
+      // then fails, hand the claim back so a retry is not locked out.
+      releaseClaim = async () => {
+        try {
+          await db.runTransaction(async (transaction) => {
+            const current = await transaction.get(ref)
+            if (!current.exists) return
+            const cadets = current.get('cadets') || []
+            const index = cadets.findIndex((item) => item.id === cadetId)
+            if (index === -1) return
+            const { joiningFormSentAt, ...rest } = cadets[index]
+            cadets[index] = rest
+            transaction.update(ref, { cadets })
+          })
+        } catch (error) { console.error('Could not release the joining-form claim:', error) }
+      }
+    } catch (error) {
+      console.error('Could not check whether the joining form was already sent:', error)
+    }
+  }
+
   // Resolve recipients on the server. The public browser must not be allowed to choose
   // where a completed form containing personal data is sent. An environment override wins,
   // followed by the shared staff setting and finally the Squadron Ops fallback.
@@ -424,6 +470,7 @@ export default async (req) => {
 
   if (!resendRes.ok) {
     const errText = await resendRes.text()
+    if (releaseClaim) await releaseClaim()
     return new Response(JSON.stringify({ error: `Resend API error: ${errText}` }), { status: 502, headers: { 'Content-Type': 'application/json' } })
   }
 

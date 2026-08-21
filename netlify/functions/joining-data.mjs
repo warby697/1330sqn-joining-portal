@@ -37,7 +37,7 @@ const cleanFamily = (family) => {
 // family that predates the last payment, and sync-family replaces the whole document, so
 // without this a stale client finishing the paperwork silently wipes the record of money
 // already taken. Same clobber that has bitten the squadron records before.
-const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress']
+const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress', 'joiningFormSentAt']
 const keepServerOwnedFields = (incomingCadets, storedCadets) => {
   const stored = new Map((storedCadets || []).map((cadet) => [cadet.id, cadet]))
   return (incomingCadets || []).map((cadet) => {
