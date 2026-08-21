@@ -102,6 +102,11 @@ export default function JoiningJourney({ familyId, cadetId, navigate, previewFam
   const portalToken = family?._portalToken || ''
   useEffect(() => {
     if (previewFamily || !portalToken || !familyId || !cadetId || stage === 'gate') return
+    // Belt and braces after one twin’s answers were written onto the other’s record: never
+    // save a form that is carrying a different cadet’s meta id. Remounting on cadet change is
+    // the actual fix, but a silent cross-write is bad enough to be worth blocking outright.
+    const belongsToThisCadet = !formData['meta.cadetId'] || formData['meta.cadetId'] === cadetId
+    if (!belongsToThisCadet) return
     const timer = setTimeout(() => {
       savePaperworkProgress(familyId, cadetId, portalToken, { progress: { stage, wizardIndex, formData } }).catch(() => undefined)
     }, 1500)

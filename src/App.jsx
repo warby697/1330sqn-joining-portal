@@ -96,7 +96,10 @@ function SharedJoiningJourney({ familyId, cadetId, accessToken, navigate }) {
   }, [accessToken, familyId])
   if (error) return <main className="mx-auto max-w-lg px-5 py-20 text-center"><p className="font-semibold text-red-700">{error}</p><button type="button" onClick={() => navigate('join')} className="mt-4 text-sm font-semibold text-[var(--blue)]">Enter the joining code again</button></main>
   if (!ready) return <main className="mx-auto max-w-lg px-5 py-20 text-center"><p className="font-semibold text-[var(--blue)]">Loading the joining paperwork...</p></main>
-  return <JoiningJourney familyId={familyId} cadetId={cadetId} navigate={navigate} />
+  // key by cadet: moving from one sibling to the next changes only the props, and without a
+  // remount React keeps the previous cadet's answers, stage and wizard position in state. That
+  // wrote one twin's form onto the other's record.
+  return <JoiningJourney key={cadetId} familyId={familyId} cadetId={cadetId} navigate={navigate} />
 }
 
 function StaffArea({ navigate, initialWorkspace = 'pipeline' }) {
