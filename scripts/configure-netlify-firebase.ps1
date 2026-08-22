@@ -43,7 +43,18 @@ try {
   & $netlifyCli env:set --context production --scope functions --secret --force -- FIREBASE_ADMIN_PRIVATE_KEY $service.private_key
   if ($LASTEXITCODE -ne 0) { throw 'Netlify rejected the Firebase private key.' }
 
-  & $netlifyCli env:set STAFF_PIN 1918 --context production --scope functions --secret --force
+  $staffPin = Read-Host "Four-digit staff PIN for the portal"
+  if ($staffPin -notmatch '^d{4}
+  if ($LASTEXITCODE -ne 0) { throw 'Netlify rejected the staff PIN.' }
+
+  Write-Host 'Firebase and staff PIN configuration saved. No deployment was started.'
+}
+finally {
+  $service = $null
+  Pop-Location
+}
+) { throw 'The staff PIN must be exactly four digits.' }
+  & $netlifyCli env:set STAFF_PIN $staffPin --context production --scope functions --secret --force
   if ($LASTEXITCODE -ne 0) { throw 'Netlify rejected the staff PIN.' }
 
   Write-Host 'Firebase and staff PIN configuration saved. No deployment was started.'

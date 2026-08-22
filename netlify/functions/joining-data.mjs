@@ -17,7 +17,10 @@ const staffAllowed = async (pin, db, request) => {
   const attempt = staffAttempts.get(address)
   if (attempt?.lockedUntil > now) return false
   const security = await db.collection(joiningPortalCollections.settings).doc('security').get()
-  const expectedHash = security.exists ? security.get('pinHash') : hash(process.env.STAFF_PIN || '1918')
+  // No built-in fallback code: if nothing is configured, refuse rather than
+  // accept a PIN that is sitting in the source for anyone to read.
+  const expectedHash = security.exists ? security.get('pinHash') : (process.env.STAFF_PIN ? hash(process.env.STAFF_PIN) : null)
+  if (!expectedHash) return false
   const allowed = same(hash(pin), expectedHash)
   if (allowed) {
     staffAttempts.delete(address)

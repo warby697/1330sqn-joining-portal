@@ -2,7 +2,8 @@ import { DEFAULT_EMAILS } from '../src/lib/adminEmails.js'
 import { DEFAULT_EMAIL_TEMPLATES, DEFAULT_KEY_DATES } from '../src/lib/communicationSettings.js'
 
 const baseUrl = process.env.PORTAL_BASE_URL || 'http://localhost:5181'
-const pin = process.env.STAFF_PIN || '1918'
+const pin = process.env.STAFF_PIN
+if (!pin) throw new Error('Set STAFF_PIN before running this seed script.')
 const settings = { emailTemplates: DEFAULT_EMAIL_TEMPLATES, keyDates: DEFAULT_KEY_DATES, adminEmails: DEFAULT_EMAILS }
 
 for (const [key, value] of Object.entries(settings)) {

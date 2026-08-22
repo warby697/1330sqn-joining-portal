@@ -3,7 +3,8 @@ import { joiningPortalCollections, joiningPortalDb } from './_firebase-admin.mjs
 export default async (request) => {
   if (request.method !== 'POST') return new Response('Method not allowed', { status: 405 })
   const { pin } = await request.json().catch(() => ({}))
-  const expectedPin = process.env.STAFF_PIN || '1918'
+  const expectedPin = process.env.STAFF_PIN
+  if (!expectedPin) return Response.json({ error: 'Not authorised.' }, { status: 401 })
   if (String(pin || '') !== expectedPin) return Response.json({ error: 'Not authorised.' }, { status: 401 })
 
   try {
