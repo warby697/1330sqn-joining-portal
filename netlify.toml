@@ -3,6 +3,12 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Netlify builds from a clean checkout, so the Node version is whatever the
+# platform defaults to rather than the one on the laptop. Vite 8 needs a modern
+# Node; pin it to match the gym and shop sites.
+[build.environment]
+  NODE_VERSION = "22"
+
 [dev]
   command = "npm run dev -- --port 5173 --strictPort"
   targetPort = 5173
