@@ -3,7 +3,7 @@ import { AdminSettingsPanel } from './AdminSettings'
 import AdminCommunications from './AdminCommunications'
 import DirectJoinerDesk from './DirectJoinerDesk'
 import {
-  OPEN_NIGHTS, OPEN_NIGHT_ADDRESS, addCadetToFamily, addStaffNote, bookOpenNight, createEnquiry, deleteCadetEnquiry, formatDate,
+  MIN_JOINING_AGE, MIN_JOINING_SCHOOL_YEAR, OPEN_NIGHTS, OPEN_NIGHT_ADDRESS, addCadetToFamily, addStaffNote, bookOpenNight, createEnquiry, deleteCadetEnquiry, formatDate, getNextEligibleIntake, meetsJoiningRequirements,
   getCommunicationSchedule, getFamily, getOpenNightManagement, getOpenNightRoster, hasMissedIntake, hydrateSharedFamily, hydrateStaffRecruitmentData, joiningCodeExpired, listFamilies, markAttended, messagesForFamily, persistFamily, removeCachedFamily, setCadetStatus,
   sendDidNotAttendEmail, sendJoiningCodeEmail, sendOpenNightConfirmation, sendParentVerificationEmail, sendWithdrawalConfirmationEmail, setOpenNightAttendance, updateGuardianDetails, updateOpenNightManagement, verifyGuardian,
 } from '../lib/recruitmentStore'
@@ -107,6 +107,12 @@ export function InterestForm({ navigate }) {
   const familyIdRef = useRef(null)
   const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
   useEffect(() => { sessionStorage.setItem(INTEREST_DRAFT_KEY, JSON.stringify(values)) }, [values])
+  // Tell the parent straight away if their child is too young, rather than letting them
+  // book an Open Night, attend, and find out on the night that they cannot join yet.
+  const provisionalCadet = { dob: dobToIso(values.cadetDob), schoolYear: Number(values.schoolYear) }
+  const detailsGiven = Boolean(provisionalCadet.dob && provisionalCadet.schoolYear)
+  const tooYoungYet = detailsGiven && !meetsJoiningRequirements(provisionalCadet)
+  const joinFrom = tooYoungYet ? getNextEligibleIntake(provisionalCadet) : null
   const submit = async (event) => {
     event.preventDefault()
     const cadetLed = values.submittedBy === 'cadet'
@@ -155,6 +161,7 @@ export function InterestForm({ navigate }) {
         <fieldset><legend className="text-sm font-medium text-slate-800">Who is completing this?</legend><div className="mt-2 flex gap-2">{[['parent', 'Parent / guardian'], ['cadet', 'Prospective cadet']].map(([value, label]) => <button type="button" key={value} onClick={() => set('submittedBy', value)} className={values.submittedBy === value ? primary : secondary}>{label}</button>)}</div></fieldset>
         {cadetLed && <div className="rounded-xl border-2 border-[var(--amber)] bg-[var(--gold-soft)] p-4 text-sm text-[var(--amber)]"><p className="font-bold">We need your parent or guardian to continue.</p><p className="mt-1">Complete what you know, then use the message on the next page to show your parent or guardian. We will not contact them just because you entered their details.</p></div>}
         <div className="grid gap-4 sm:grid-cols-2"><Field label="Prospective cadet’s full name"><input className={inputClass} value={values.cadetName} onChange={(e) => set('cadetName', e.target.value)} /></Field><Field label="Cadet’s date of birth"><input type="text" inputMode="numeric" autoComplete="bday" maxLength={10} placeholder="DD/MM/YYYY" className={inputClass} value={values.cadetDob} onChange={(e) => set('cadetDob', formatDobInput(e.target.value))} /></Field><Field label="Current school year"><select className={inputClass} value={values.schoolYear} onChange={(e) => set('schoolYear', e.target.value)}><option value="">Select…</option>{Array.from({ length: 9 }, (_, index) => index + 5).map((year) => <option key={year} value={year}>Year {year}</option>)}</select></Field></div>
+        {tooYoungYet && <div className="rounded-xl border-2 border-[var(--amber)] bg-[var(--gold-soft)] p-4 text-sm text-[var(--amber)]"><p className="font-bold">Not quite old enough yet</p><p className="mt-1">Cadets must be at least {MIN_JOINING_AGE} years old and in Year {MIN_JOINING_SCHOOL_YEAR} or above to join. {values.cadetName.trim() || 'They'} would be able to start{joinFrom ? ` from ${formatDate(joinFrom)}` : ' at a later intake'}.</p><p className="mt-1">You are very welcome to register now. We will hold the details and contact you when a place can be offered, and you will not need an Open Night booking before then.</p></div>}
         <hr className="border-slate-200" />
         <h2 className="font-semibold text-slate-900">Parent or guardian details</h2>
         <Field label={cadetLed ? 'Parent or guardian name, if known' : 'Parent/guardian full name'}><input className={inputClass} value={values.guardianName} onChange={(e) => set('guardianName', e.target.value)} /></Field>

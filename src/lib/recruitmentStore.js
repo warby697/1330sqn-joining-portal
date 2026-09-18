@@ -35,16 +35,25 @@ const read = () => {
 // changed to Firestore. Returns a promise that resolves when that sync lands
 // (or rejects if it fails) so callers can wait before advancing the UI.
 // Passing no id keeps the write local-only (used when the caller syncs itself).
+// Counts saves that have been made locally but have not reached the server yet. The staff
+// screen reloads everything from the server every few seconds, and that reload used to
+// land while a save was still in flight, replacing the change with the older server copy.
+// On screen the button sprang back as though it had never been clicked, so staff clicked
+// two or three times, and an attendance mark could be lost outright.
+let pendingWrites = 0
+export const hasPendingWrites = () => pendingWrites > 0
+
 const write = (data, changedId) => {
   localStorage.setItem(STORE_KEY, JSON.stringify(data))
   window.dispatchEvent(new Event('recruitment-store-change'))
   if (changedId == null) return Promise.resolve()
   const ids = Array.isArray(changedId) ? changedId : [changedId]
+  pendingWrites += 1
   return Promise.all(
     data.families
       .filter((family) => ids.includes(family.id))
       .map((family) => syncFamily({ ...family, _messages: data.messages.filter((message) => message.familyId === family.id) })),
-  )
+  ).finally(() => { pendingWrites -= 1 })
 }
 
 const id = (prefix) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
@@ -520,7 +529,11 @@ export function updateOpenNightManagement(openNightId, patch) {
 }
 
 export async function hydrateStaffRecruitmentData() {
+  // A save of our own is still on its way to the server, so anything it sends back now is
+  // out of date. Leave what is on screen alone and pick it up on the next refresh.
+  if (hasPendingWrites()) return read()
   const snapshot = await loadStaffSnapshot()
+  if (hasPendingWrites()) return read()
   hydrateCommunicationSettings(snapshot.settings || {})
   refreshOpenNights()
   hydrateAdminEmails(snapshot.settings?.adminEmails)
@@ -638,6 +651,17 @@ function academicYear(date) {
   return date.getFullYear() - (date.getMonth() < 8 ? 1 : 0)
 }
 
+// A cadet must be at least 12 AND in Year 8 or above. This was previously written as
+// "13 or Year 8", which let an eleven year old in Year 7 book an Open Night and turn up
+// expecting to join. Both conditions have to be met, on the date they would start.
+export const MIN_JOINING_AGE = 12
+export const MIN_JOINING_SCHOOL_YEAR = 8
+
+export function meetsJoiningRequirements(cadet, date = new Date()) {
+  if (!cadet?.dob || !cadet?.schoolYear) return false
+  return ageAt(cadet.dob, date) >= MIN_JOINING_AGE && schoolYearAt(cadet, date) >= MIN_JOINING_SCHOOL_YEAR
+}
+
 function schoolYearAt(cadet, date) {
   const recordedAcademicYear = Number(cadet.schoolYearRecordedAcademicYear ?? academicYear(new Date()))
   return Number(cadet.schoolYear) + (academicYear(date) - recordedAcademicYear)
@@ -670,7 +694,7 @@ export function getNextIntake(from = new Date()) {
   return intakeCandidates(from)[0]
 }
 export function getNextEligibleIntake(cadet, from = new Date()) {
-  return intakeCandidates(from).find((intake) => ageAt(cadet.dob, intake) >= 13 || schoolYearAt(cadet, intake) >= 8) || intakeCandidates(from).at(-1)
+  return intakeCandidates(from).find((intake) => meetsJoiningRequirements(cadet, intake)) || intakeCandidates(from).at(-1)
 }
 
 function isEligibleForNextIntake(cadet, from = new Date()) {
