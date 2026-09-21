@@ -134,7 +134,9 @@ function JoiningCodeAccess({ navigate }) {
       const sessionKey = `joining-portal:paperwork:${result.cadetId}`
       let existingSession = {}
       try { existingSession = JSON.parse(sessionStorage.getItem(sessionKey) || '{}') } catch { existingSession = {} }
-      sessionStorage.setItem(sessionKey, JSON.stringify({ ...existingSession, stage: 'welcome', familyToken: result.token }))
+      // Only hand over the access token. Forcing the welcome page here used to beat the saved
+      // progress and restart parents who had already paid.
+      sessionStorage.setItem(sessionKey, JSON.stringify({ ...existingSession, familyToken: result.token }))
       navigate(`join/${result.family.id}/${result.cadetId}/${result.token}`)
     } catch (accessError) {
       setError(accessError.message || 'No unlocked paperwork was found for those details.')

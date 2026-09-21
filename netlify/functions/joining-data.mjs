@@ -2,6 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import { FieldValue } from 'firebase-admin/firestore'
 import { joiningPortalCollections, joiningPortalDb } from './_firebase-admin.mjs'
 import { renderEmail, bodyToParagraphs } from './_email-layout.mjs'
+import { isRegression } from '../../src/lib/paperworkResume.js'
 
 const json = (body, status = 200) => Response.json(body, { status })
 const hash = (value) => createHash('sha256').update(String(value || '')).digest('hex')
@@ -222,7 +223,9 @@ export default async (request) => {
         const index = cadets.findIndex((item) => item.id === cadetId)
         if (index === -1) throw new Error('NOT_FOUND')
         const cadet = { ...cadets[index] }
-        if (body.progress && typeof body.progress === 'object') {
+        // A restarted form arriving on top of one that got further is a lost form, not an
+        // edit, so keep the fuller copy. Moving back a page keeps every answer and passes.
+        if (body.progress && typeof body.progress === 'object' && !isRegression(cadet.paperworkProgress, body.progress)) {
           cadet.paperworkProgress = {
             stage: String(body.progress.stage || ''),
             wizardIndex: Number(body.progress.wizardIndex) || 0,
