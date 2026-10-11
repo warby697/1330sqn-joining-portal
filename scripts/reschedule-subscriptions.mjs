@@ -11,16 +11,21 @@
 // with a working Direct Debit rather than none. The mandate itself is untouched, so there
 // is nothing for the parent to re-authorise and no new email to them.
 //
-// The access token is a Netlify secret and cannot be read back, so pass it in:
-//   GOCARDLESS_ACCESS_TOKEN=live_xxx node scripts/reschedule-subscriptions.mjs
-//   GOCARDLESS_ACCESS_TOKEN=live_xxx node scripts/reschedule-subscriptions.mjs --apply
+// Needs GOCARDLESS_ACCESS_TOKEN. Netlify stores it as a secret and will not read it back,
+// so put a copy in .env (which is gitignored) and then:
+//   node scripts/reschedule-subscriptions.mjs
+//   node scripts/reschedule-subscriptions.mjs --apply
 //
 // Do one first and check it in the GoCardless dashboard, then run the rest:
-//   GOCARDLESS_ACCESS_TOKEN=live_xxx node scripts/reschedule-subscriptions.mjs --cadet "Jenna Dawson" --apply
+//   node scripts/reschedule-subscriptions.mjs --cadet "Jenna Dawson" --apply
 import { readFile } from 'node:fs/promises'
+import { loadEnv } from './load-env.mjs'
 import { randomUUID } from 'node:crypto'
 import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+
+// Picks the GoCardless token up from .env if it is not already in the environment.
+loadEnv()
 
 const apply = process.argv.includes('--apply')
 const only = (() => {

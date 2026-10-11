@@ -1,9 +1,13 @@
 // Read only. For every cadet with a GoCardless subscription, asks GoCardless itself
-// when the first payment is actually due. Run it with the token injected, never printed:
-//   npx netlify dev:exec node scripts/audit-subscription-dates.mjs
+// when the first payment is actually due. Needs GOCARDLESS_ACCESS_TOKEN in .env:
+//   node scripts/audit-subscription-dates.mjs
 import { readFile } from 'node:fs/promises'
+import { loadEnv } from './load-env.mjs'
 import { cert, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
+
+// Picks the GoCardless token up from .env if it is not already in the environment.
+loadEnv()
 
 const TOKEN = process.env.GOCARDLESS_ACCESS_TOKEN
 if (!TOKEN) {
