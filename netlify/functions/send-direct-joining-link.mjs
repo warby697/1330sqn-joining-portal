@@ -13,10 +13,13 @@ export default async (request) => {
   const cadetName = details.cadetName || 'your cadet'
   const subject = details.template?.subject || `Joining paperwork for ${cadetName}`
   const intro = details.template?.body || `Thank you for enquiring about 1330 Squadron.\n\nEverything is ready for ${cadetName} to join. The button below opens the joining paperwork, where you will complete the Form 3822, pay the joining fee and set up the monthly subscription.\n\nPlease keep this link to yourself. It opens your family's record and does not need a code.`
+  // The heading and the button wording are overridable because this same link is also
+  // sent to a parent part way through, where "Start the joining paperwork" reads as if
+  // everything they have already filled in has been lost.
   const { html, text } = renderEmail({
-    heading: 'Thank you for enquiring',
+    heading: details.heading || 'Thank you for enquiring',
     paragraphs: bodyToParagraphs(intro),
-    cta: { label: 'Start the joining paperwork', url: details.portalUrl },
+    cta: { label: details.ctaLabel || 'Start the joining paperwork', url: details.portalUrl },
   })
   const response = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: sender(rawFrom), to: details.to, subject, html }) })
   if (!response.ok) return Response.json({ error: `Email service error: ${await response.text()}` }, { status: 502 })
