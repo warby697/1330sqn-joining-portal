@@ -49,7 +49,8 @@ test('creates a monthly subscription using mandate_request.links.mandate', async
     assert.deepEqual(subscriptionBody.subscriptions.links, { mandate: 'MD123' })
     assert.equal(subscriptionBody.subscriptions.interval, 1)
     assert.equal(subscriptionBody.subscriptions.interval_unit, 'monthly')
-    assert.equal(subscriptionBody.subscriptions.start_date, undefined) // no startDate passed -> starts ASAP
+    // Collections always sit on the 1st, even with no start date to go on.
+    assert.match(subscriptionBody.subscriptions.start_date, /^[0-9]{4}-[0-9]{2}-01$/)
   } finally {
     globalThis.fetch = originalFetch
   }
@@ -74,17 +75,29 @@ async function subscriptionBodyFor(startDate) {
   }
 }
 
-test('delays the first collection to the intended start date when it is in the future', async () => {
-  const april = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
-  const sub = await subscriptionBodyFor(april)
-  assert.equal(sub.start_date, april.slice(0, 10))
+test('delays the first collection to the 1st of the month the cadet starts in', async () => {
+  const inThreeMonths = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+  const sub = await subscriptionBodyFor(inThreeMonths.toISOString())
+  assert.equal(sub.start_date, `${inThreeMonths.getFullYear()}-${String(inThreeMonths.getMonth() + 1).padStart(2, '0')}-01`)
 })
 
-test('does not set a start date when the start is imminent or past', async () => {
+test('a start date that is imminent or past still collects from a real 1st', async () => {
+  // It used to leave start_date off and let GoCardless pick, which put the cadet on
+  // a different collection day from everyone else.
   const soon = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
-  assert.equal((await subscriptionBodyFor(soon)).start_date, undefined)
+  assert.match((await subscriptionBodyFor(soon)).start_date, /^[0-9]{4}-[0-9]{2}-01$/)
   const past = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  assert.equal((await subscriptionBodyFor(past)).start_date, undefined)
+  assert.match((await subscriptionBodyFor(past)).start_date, /^[0-9]{4}-[0-9]{2}-01$/)
+})
+
+test('a start date half a year out is treated as a stale record, not a real wait', async () => {
+  // The 8 October 2026 cohort carried a start date of 1 April 2027. Honouring it meant
+  // sixteen cadets paying nothing for six months.
+  const sixMonths = new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)
+  const sub = await subscriptionBodyFor(sixMonths.toISOString())
+  const months = (Number(sub.start_date.slice(0, 4)) * 12 + Number(sub.start_date.slice(5, 7)))
+    - (new Date().getFullYear() * 12 + new Date().getMonth() + 1)
+  assert.ok(months <= 1, `collection was pushed ${months} months out: ${sub.start_date}`)
 })
 
 test('reuses an already completed fee without creating another hosted flow', async () => {

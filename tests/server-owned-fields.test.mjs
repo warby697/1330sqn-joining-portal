@@ -1,23 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'vitest'
 
-// Mirrors keepServerOwnedFields in netlify/functions/joining-data.mjs. The real one runs
-// inside a Firestore transaction, so this covers the merge rule itself: the part that
-// decides whether a stale browser can wipe a recorded payment.
-const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress', 'joiningFormSentAt']
-const keepServerOwnedFields = (incomingCadets, storedCadets) => {
-  const stored = new Map((storedCadets || []).map((cadet) => [cadet.id, cadet]))
-  return (incomingCadets || []).map((cadet) => {
-    const previous = stored.get(cadet.id)
-    if (!previous) return cadet
-    const merged = { ...cadet }
-    for (const field of SERVER_OWNED_CADET_FIELDS) {
-      if (previous[field] === undefined) delete merged[field]
-      else merged[field] = previous[field]
-    }
-    return merged
-  })
-}
+// The merge rule the function actually runs, imported rather than copied: a hand copy of
+// it here would pass while the real one was broken. The real one runs inside a Firestore
+// transaction, so these tests cover the rule itself, which is the part that decides
+// whether a stale browser can wipe a recorded payment.
+import { keepServerOwnedFields } from '../src/lib/familyMerge.js'
 
 const paidCadet = (extra = {}) => ({
   id: 'cadet-1',
@@ -72,4 +60,23 @@ test('the joining-form sent flag cannot be cleared by a client, so the email sta
   const incoming = [{ id: 'cadet-1', paperworkStatus: 'completed' }]
   const [result] = keepServerOwnedFields(incoming, stored)
   assert.equal(result.joiningFormSentAt, '2026-08-21T16:50:00.000Z')
+})
+
+test('a stale tab cannot push a corrected start date back to the old one', () => {
+  // The October 2026 cohort was given a start date of 1 April 2027 and had it corrected
+  // by hand. Twelve of them were part way through the paperwork, so their tabs were still
+  // holding the April date.
+  const stale = [{ id: 'cadet-1', fullName: 'Jamie Smith', intendedStartDate: '2027-04-01T17:30:00.000Z' }]
+  const stored = [{ id: 'cadet-1', fullName: 'Jamie Smith', intendedStartDate: '2026-10-12T17:30:00.000Z' }]
+  assert.equal(keepServerOwnedFields(stale, stored)[0].intendedStartDate, '2026-10-12T17:30:00.000Z')
+})
+
+test('staff marking attendance can still set the start date in the first place', () => {
+  // Unlike a payment, an absent stored value here means it has never been set, not that
+  // the client invented it.
+  const incoming = [{ id: 'cadet-1', fullName: 'Jamie Smith', intendedStartDate: '2026-10-12T17:30:00.000Z', eligibleIntakeDate: '2026-10-12T17:30:00.000Z' }]
+  const stored = [{ id: 'cadet-1', fullName: 'Jamie Smith' }]
+  const merged = keepServerOwnedFields(incoming, stored)[0]
+  assert.equal(merged.intendedStartDate, '2026-10-12T17:30:00.000Z')
+  assert.equal(merged.eligibleIntakeDate, '2026-10-12T17:30:00.000Z')
 })

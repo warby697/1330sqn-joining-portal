@@ -674,16 +674,26 @@ function ageAt(dobValue, date) {
   return age
 }
 
+// An intake is a gate, not a queue. The Open Night on 8 October 2026 was held a week
+// after the 1 October intake, so every cadet from it was pushed to the following April:
+// 26 records were given a start date of 1 April 2027, and the sixteen who had paid by
+// then had their first Direct Debit set six months out. An intake therefore stays open
+// for the length of the recruit course, and a start date is never in the past.
+const INTAKE_STAYS_OPEN_WEEKS = 10
+
 function intakeCandidates(from = new Date()) {
+  const opened = new Date(from.getTime() - INTAKE_STAYS_OPEN_WEEKS * 7 * 24 * 60 * 60 * 1000)
   const candidates = []
-  for (let year = from.getFullYear(); year <= from.getFullYear() + 8; year += 1) {
+  for (let year = opened.getFullYear(); year <= from.getFullYear() + 8; year += 1) {
     for (const value of getKeyDates().intakeDates) {
       const [month, day] = value.split('-').map(Number)
       const intake = firstParadeNightOnOrAfter(new Date(year, month - 1, day))
-      if (intake >= from) candidates.push(intake)
+      if (intake >= opened) candidates.push(intake)
     }
   }
-  return candidates
+  candidates.sort((first, second) => first - second)
+  // An intake already under way starts them on the next parade night instead.
+  return candidates.map((intake) => (intake >= from ? intake : firstParadeNightOnOrAfter(from)))
 }
 
 // The next intake full stop, with no eligibility screening. A direct joiner has already

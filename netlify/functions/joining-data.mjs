@@ -3,6 +3,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { joiningPortalCollections, joiningPortalDb } from './_firebase-admin.mjs'
 import { renderEmail, bodyToParagraphs } from './_email-layout.mjs'
 import { isRegression } from '../../src/lib/paperworkResume.js'
+import { keepServerOwnedFields } from '../../src/lib/familyMerge.js'
 
 const json = (body, status = 200) => Response.json(body, { status })
 const hash = (value) => createHash('sha256').update(String(value || '')).digest('hex')
@@ -37,24 +38,7 @@ const cleanFamily = (family) => {
   delete value._portalToken
   return value
 }
-// Written only by the server, from save-paperwork-progress. A browser can hold a copy of the
-// family that predates the last payment, and sync-family replaces the whole document, so
-// without this a stale client finishing the paperwork silently wipes the record of money
-// already taken. Same clobber that has bitten the squadron records before.
-const SERVER_OWNED_CADET_FIELDS = ['payments', 'paperworkProgress', 'joiningFormSentAt']
-const keepServerOwnedFields = (incomingCadets, storedCadets) => {
-  const stored = new Map((storedCadets || []).map((cadet) => [cadet.id, cadet]))
-  return (incomingCadets || []).map((cadet) => {
-    const previous = stored.get(cadet.id)
-    if (!previous) return cadet
-    const merged = { ...cadet }
-    for (const field of SERVER_OWNED_CADET_FIELDS) {
-      if (previous[field] === undefined) delete merged[field]
-      else merged[field] = previous[field]
-    }
-    return merged
-  })
-}
+
 
 const newToken = () => randomBytes(24).toString('hex')
 const normalEmail = (value) => String(value || '').trim().toLowerCase()

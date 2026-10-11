@@ -1,4 +1,5 @@
 import { SUBS_AMOUNT_PENCE } from '../../src/lib/pricing.js'
+import { firstCollectionDate } from '../../src/lib/subscriptionSchedule.js'
 
 const GC_API = process.env.GOCARDLESS_API || 'https://api.gocardless.com'
 const GC_VERSION = '2015-07-06'
@@ -73,14 +74,12 @@ export default async (req) => {
     metadata: { reference },
     links: { mandate: mandateId },
   }
-  // Delay the first collection until the cadet actually starts, so paperwork
-  // completed months before the intake does not trigger monthly payments in the
-  // meantime. Only set a start date comfortably in the future; if the start is
-  // imminent or past, let GoCardless begin on its earliest valid date.
-  const start = startDate ? new Date(startDate) : null
-  if (start && !Number.isNaN(start.getTime()) && start.getTime() > Date.now() + 7 * 24 * 60 * 60 * 1000) {
-    subscription.start_date = start.toISOString().slice(0, 10)
-  }
+  // Collect from the 1st of the month the cadet starts parading in, so paperwork
+  // finished before the intake does not trigger payments in the meantime and everyone
+  // sits on the same collection day. Decided here rather than trusting the date the
+  // client sent: a start date left over from a closed intake put sixteen first
+  // collections six months out.
+  subscription.start_date = firstCollectionDate(startDate)
 
   const subRes = await fetch(`${GC_API}/subscriptions`, {
     method: 'POST',
