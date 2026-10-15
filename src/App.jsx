@@ -6,6 +6,9 @@ import { FamilyDashboard, InterestForm, RecruitmentAdmin, RecruitmentHome } from
 import { hydrateSharedFamily, hydrateStaffRecruitmentData } from './lib/recruitmentStore'
 import { currentStaffPin, forgetStaffPin, redeemJoiningCode, rememberStaffPin } from './lib/sharedRecruitmentStore'
 import { PENDING_PAYMENT_KEY } from './components/PortalSteps'
+import StepScreen, { stepIncompleteReason } from './components/StepScreen'
+import { steps3822A } from './lib/steps3822A'
+import { steps3822H } from './lib/steps3822H'
 
 const STAFF_SESSION_KEY = 'joining-portal-staff-unlocked'
 
@@ -47,6 +50,9 @@ export default function App() {
   if (route.page === 'interest') return <InterestForm navigate={navigate} />
   if (import.meta.env.DEV && route.page === 'family-preview') return <FamilyDashboard familyId="preview-family" navigate={navigate} previewFamily={previewFamily} />
   if (import.meta.env.DEV && route.page === 'joining-preview') return <JoiningJourney familyId="preview-family" cadetId="preview-cadet" navigate={navigate} previewFamily={joiningPreviewFamily} previewStage="fee" />
+  // Opens one named page of the Form 3822 on its own, so it can be looked at without
+  // clicking through everything before it. Dev only, like the previews above.
+  if (import.meta.env.DEV && route.page === 'step-preview') return <StepPreview stepId={route.parts[0] || ''} />
   if (import.meta.env.DEV && route.page === 'payment-return-preview') return <PaymentReturnPage preview />
   if (import.meta.env.DEV && route.page === 'direct-joiner-preview') return <main className="mx-auto max-w-3xl px-5 py-10"><DirectJoinerDesk onDataChanged={() => undefined} /></main>
   if (route.page === 'payment-return') return <PaymentReturnPage />
@@ -56,6 +62,45 @@ export default function App() {
   if (route.page === 'join' && route.parts.length >= 2) return <SharedJoiningJourney familyId={route.parts[0]} cadetId={route.parts[1]} accessToken={route.parts[2] || ''} navigate={navigate} />
   if (route.page === 'join') return <JoiningCodeAccess navigate={navigate} />
   return <RecruitmentHome navigate={navigate} />
+}
+
+// One page of the Form 3822 on its own, rendered by the same StepScreen the parents see,
+// with the same gate underneath so the blocking message can be checked too. The cadet and
+// parent details are prefilled the way the real form prefills them from the enquiry.
+function StepPreview({ stepId }) {
+  const steps = [...steps3822A, ...steps3822H]
+  const step = steps.find((item) => item.id === stepId)
+  const [formData, setFormData] = useState({
+    'cadet.fullName': 'Oliver Thomas Kaminski',
+    'cadet.dob': '2014-08-11',
+    'parent1.fullName': 'Tina Kaminski',
+    'parent1.primaryEmail': 'tina@example.com',
+    'parent1.mobile': '07988 511060',
+  })
+  const update = (patch) => setFormData((current) => ({ ...current, ...patch }))
+  if (!step) {
+    return (
+      <main className="mx-auto max-w-lg px-5 py-20">
+        <p className="font-semibold text-red-700">No form page with the id {stepId || '(none given)'}.</p>
+        <p className="mt-3 text-sm text-slate-600">Try one of: {steps.map((item) => item.id).join(', ')}</p>
+      </main>
+    )
+  }
+  const blocked = stepIncompleteReason(step, formData)
+  return (
+    <main className="mx-auto max-w-3xl px-5 py-10">
+      <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">{step.title}</h2>
+        {step.subtitle && <p className="text-sm text-slate-500 mb-5">{step.subtitle}</p>}
+        <StepScreen step={step} formData={formData} update={update} />
+      </div>
+      {blocked && <p className="mb-4 rounded-lg bg-[var(--gold-soft)] px-4 py-2.5 text-sm text-[var(--amber)]">{blocked}</p>}
+      <div className="flex gap-3">
+        <button type="button" disabled className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-40">Back</button>
+        <button type="button" className="flex-1 rounded-lg bg-[var(--blue)] py-2.5 text-sm font-semibold text-white">Continue</button>
+      </div>
+    </main>
+  )
 }
 
 const previewFamily = {

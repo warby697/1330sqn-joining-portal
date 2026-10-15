@@ -1,5 +1,6 @@
 import { addressFields } from './addressFields'
 import { NATIONALITY_OPTIONS, GENDER_OPTIONS, PRONOUN_OPTIONS, ETHNICITY_OPTIONS, PREV_ORG_OPTIONS } from './options'
+import { clashingParentPhone } from './phoneNumbers'
 
 export const steps3822A = [
   {
@@ -43,13 +44,41 @@ export const steps3822A = [
     id: 'contact-details',
     section: '1c',
     title: "Cadet's contact details",
-    subtitle: 'At least one phone number and a working primary email are required to set up the Cadet Portal account.',
-    completeIf: (d) => String(d['cadet.mobile'] || '').trim() !== '' || String(d['cadet.homePhone'] || '').trim() !== '',
-    incompleteMessage: 'Please enter at least one phone number for the cadet (mobile or home).',
+    subtitle: "The cadet's own mobile and email are needed for squadron text messages and the Cadet Portal account. Please do not use a parent's mobile or email here.",
+    completeIf: (d) => (String(d['cadet.mobile'] || '').trim() !== '' || String(d['cadet.homePhone'] || '').trim() !== '')
+      && !clashingParentPhone(d),
+    incompleteMessage: "Please check the phone numbers. We need at least one number for the cadet, and the mobile must be the cadet's own, not the same as a parent or guardian's.",
     fields: [
       ...addressFields('cadet.address'),
-      { type: 'text', id: 'cadet.mobile', label: 'Mobile phone', help: 'Enter at least one of mobile or home phone.', half: true },
+      {
+        type: 'notice',
+        id: 'cadet.mobileNotice',
+        textFor: (d) => {
+          const first = (d['cadet.fullName'] || '').trim().split(' ')[0]
+          return `⚠ This must be ${first ? `${first}'s` : "the cadet's"} own mobile number - NOT a parent or guardian's. Squadron text messages about parade nights and activities are sent to this number, and ${first || 'the cadet'} cannot be signed up for them on a parent's phone. If ${first || 'the cadet'} does not have a mobile, leave it blank and give the home phone instead.`
+        },
+      },
+      {
+        type: 'text',
+        id: 'cadet.mobile',
+        label: 'mobile_label',
+        labelFor: (d) => {
+          const first = (d['cadet.fullName'] || '').trim().split(' ')[0]
+          return first ? `${first}'s own mobile number` : "Cadet's own mobile number"
+        },
+        help: 'Used for squadron text messages. Leave blank if they do not have a mobile, and fill in the home phone instead.',
+        half: true,
+      },
       { type: 'text', id: 'cadet.homePhone', label: 'Home phone', half: true },
+      {
+        type: 'ack',
+        id: 'cadet.mobileConfirmed',
+        // Only asked once a mobile has actually been entered, because a cadet with no
+        // phone of their own is a perfectly normal answer and must not be blocked.
+        showIf: (d) => String(d['cadet.mobile'] || '').trim() !== '',
+        requiredIf: (d) => String(d['cadet.mobile'] || '').trim() !== '',
+        label: "I confirm the mobile above is the cadet's own number, not a parent/guardian's",
+      },
       {
         type: 'notice',
         id: 'cadet.emailNotice',
