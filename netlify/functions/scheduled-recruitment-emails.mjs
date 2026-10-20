@@ -1,6 +1,7 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { joiningPortalCollections, joiningPortalDb } from './_firebase-admin.mjs'
 import { DEFAULT_EMAIL_TEMPLATES, DEFAULT_KEY_DATES, emailPortalUrl } from '../../src/lib/communicationSettings.js'
+import { joiningSettled } from '../../src/lib/paperworkComplete.js'
 import { renderEmail, bodyToParagraphs } from './_email-layout.mjs'
 
 // Which reminder gets which button. Start-date reminders are informational, so no button.
@@ -67,10 +68,13 @@ export default async () => {
         { id: 'booking_nudge', when: verified && !cadet.openNightId && !cadet.attendedAt ? new Date(verified.getTime() + 2 * day) : null },
         { id: 'open_night_reminder', when: eventDate && !attended ? new Date(eventDate.getTime() - Number(settings.reminderDaysBefore || 7) * day) : null },
         { id: 'open_night_final_reminder', when: eventDate && !attended ? new Date(eventDate.getTime() - Number(settings.finalReminderHoursBefore || 24) * hour) : null },
-        { id: 'paperwork_reminder', when: attended && cadet.paperworkStatus !== 'completed' ? new Date(attended.getTime() + 7 * day) : null },
+        // Not "have they pressed the final button" but "are we actually missing
+        // anything". Twelve parents had finished the form, paid the fee and set up the
+        // Direct Debit, and were chased for paperwork the squadron was already holding.
+        { id: 'paperwork_reminder', when: attended && !joiningSettled(cadet) ? new Date(attended.getTime() + 7 * day) : null },
         { id: 'code_expiry_warning', when: codeExpiry && !cadet.joiningCodeUsedAt ? new Date(codeExpiry.getTime() - 3 * day) : null },
-        { id: 'start_reminder_7_days', when: startDate && cadet.paperworkStatus === 'completed' ? new Date(startDate.getTime() - 7 * day) : null },
-        { id: 'start_reminder_24_hours', when: startDate && cadet.paperworkStatus === 'completed' ? new Date(startDate.getTime() - day) : null },
+        { id: 'start_reminder_7_days', when: startDate && joiningSettled(cadet) ? new Date(startDate.getTime() - 7 * day) : null },
+        { id: 'start_reminder_24_hours', when: startDate && joiningSettled(cadet) ? new Date(startDate.getTime() - day) : null },
       ]
       for (const candidate of candidates) {
         const template = templates.find((item) => item.id === candidate.id)
