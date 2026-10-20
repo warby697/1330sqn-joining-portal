@@ -37,6 +37,13 @@ export const DEFAULT_KEY_DATES = {
   openNightStart: '19:15', arrivalTime: '19:10', openNightEnd: '20:30',
   paradeDays: 'Monday and Thursday', paradeTime: '18:30', joiningCodeDays: 30,
   monthlyEmailDay: 1, reminderDaysBefore: 7, finalReminderHoursBefore: 24,
+  // Set when the squadron closes enrolment for an intake that is still inside its grace
+  // window. Any intake on or before this date stops being offered, so a new enquiry is
+  // told the next one instead of a course that has already formed up. Blank means the
+  // normal rule applies.
+  intakeClosedOn: '',
+  // Past Open Nights kept for their rosters and attendance history, but out of the way.
+  archivedOpenNights: [],
 }
 
 export function getEmailTemplates() { try { return JSON.parse(localStorage.getItem(TEMPLATE_KEY)) || DEFAULT_EMAIL_TEMPLATES } catch { return DEFAULT_EMAIL_TEMPLATES } }

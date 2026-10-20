@@ -70,13 +70,25 @@ function buildOpenNights() {
   const settings = getKeyDates()
   const [hours, minutes] = settings.openNightStart.split(':').map(Number)
   const dates = settings.openNights.map((value) => { const [year, month, day] = value.split('-').map(Number); return new Date(year, month - 1, day, hours, minutes) })
-  return dates.map((date) => ({
-    id: `open-night-${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
-    startsAt: date.toISOString(), capacity: 50, staffingRequired: ['Event lead', 'OC', 'Additional staff member'], fullNight: true,
-  }))
+  // Archived nights stay in the list so their rosters and attendance still resolve by id,
+  // they are just marked so the desk can keep them out of the way.
+  const archived = new Set(settings.archivedOpenNights || [])
+  return dates.map((date) => {
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    return {
+      id: `open-night-${key}`,
+      startsAt: date.toISOString(), capacity: 50, staffingRequired: ['Event lead', 'OC', 'Additional staff member'], fullNight: true,
+      archived: archived.has(key),
+    }
+  })
 }
 
 export const OPEN_NIGHTS = buildOpenNights()
+// Built fresh on each call rather than filtering OPEN_NIGHTS, which is assembled once at
+// import and only rebuilt when shared settings are hydrated. Archiving a night in the
+// admin screen would otherwise not show until the next five second poll.
+export const allOpenNights = () => buildOpenNights()
+export const liveOpenNights = () => buildOpenNights().filter((night) => !night.archived)
 function refreshOpenNights() { OPEN_NIGHTS.splice(0, OPEN_NIGHTS.length, ...buildOpenNights()) }
 
 export const formatDate = (value, options = {}) => new Date(value).toLocaleDateString('en-GB', {
@@ -683,11 +695,17 @@ const INTAKE_STAYS_OPEN_WEEKS = 10
 
 function intakeCandidates(from = new Date()) {
   const opened = new Date(from.getTime() - INTAKE_STAYS_OPEN_WEEKS * 7 * 24 * 60 * 60 * 1000)
+  // The grace window keeps an intake open for people who were already coming. Once the
+  // squadron closes enrolment the recruit course has formed up, so a new enquiry waits
+  // for the next one however recently the intake began.
+  const closedOn = getKeyDates().intakeClosedOn
+  const closed = closedOn ? new Date(`${closedOn}T23:59:59`) : null
   const candidates = []
   for (let year = opened.getFullYear(); year <= from.getFullYear() + 8; year += 1) {
     for (const value of getKeyDates().intakeDates) {
       const [month, day] = value.split('-').map(Number)
       const intake = firstParadeNightOnOrAfter(new Date(year, month - 1, day))
+      if (closed && intake <= closed) continue
       if (intake >= opened) candidates.push(intake)
     }
   }
