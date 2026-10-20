@@ -96,7 +96,10 @@ export default async () => {
         existing.push(message)
         sent += 1
       }
-      if (startDate && now >= new Date(startDate.getTime() + 14 * day) && !['joined', 'withdrawn'].includes(cadet.status)) {
+      // Only worth telling staff about if something is actually outstanding. Going on the
+      // status alone would have listed every fully enrolled cadet as having missed their
+      // own intake.
+      if (startDate && now >= new Date(startDate.getTime() + 14 * day) && !['joined', 'withdrawn'].includes(cadet.status) && !joiningSettled(cadet)) {
         const alertKey = `missed_intake_staff_alert:${startDate.toISOString().slice(0, 10)}`
         if (!existing.some((message) => message.cadetId === cadet.id && message.alertKey === alertKey)) {
           missedIntakeApplications.push({ document, family, cadet, startDate, alertKey })

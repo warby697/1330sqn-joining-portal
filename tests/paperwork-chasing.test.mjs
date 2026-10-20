@@ -80,3 +80,22 @@ test('reaching the last page on its own proves nothing', () => {
   const lookedAtIt = { paperworkStatus: 'in_progress', paperworkProgress: { stage: 'done' }, payments: {} }
   assert.equal(joiningSettled(lookedAtIt), false)
 })
+
+test('a fully enrolled cadet has not missed their own intake', async () => {
+  const { hasMissedIntake } = await import('../src/lib/recruitmentStore.js')
+  // 26 October 2026: a fortnight after the 12 October start. Every enrolled cadet was
+  // about to be reported to staff as having missed the intake they were sitting in.
+  const settled = { ...finishedButNeverPressedComplete, status: 'ready_to_start', intendedStartDate: '2026-10-12T17:30:00.000Z' }
+  assert.equal(hasMissedIntake(settled, new Date('2026-10-26T20:00:00Z')), false)
+})
+
+test('someone past their start date with the Direct Debit missing is still flagged', async () => {
+  const { hasMissedIntake } = await import('../src/lib/recruitmentStore.js')
+  const stuck = {
+    status: 'paperwork_in_progress',
+    intendedStartDate: '2026-10-12T17:30:00.000Z',
+    joiningFormSentAt: '2026-10-11T16:24:00.000Z',
+    payments: { fee: { status: 'paid' } },
+  }
+  assert.equal(hasMissedIntake(stuck, new Date('2026-10-26T20:00:00Z')), true)
+})

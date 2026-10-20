@@ -1,4 +1,5 @@
 import { emailPortalUrl, getEmailTemplates, getKeyDates, hydrateCommunicationSettings } from './communicationSettings'
+import { joiningSettled } from './paperworkComplete'
 import { hydrateAdminEmails } from './adminEmails'
 import { createDirectJoiner, createFamilyToken, deleteSharedFamily, loadSharedFamily, loadStaffSnapshot, saveSharedOpenNight, syncFamily } from './sharedRecruitmentStore'
 
@@ -448,8 +449,13 @@ export function joiningCodeExpired(cadet) {
   return Boolean(expiry && expiry < new Date())
 }
 
+// Past their start date with something genuinely still missing. Judged on what the
+// squadron holds rather than on the hand-set status, which lags: otherwise every one of
+// the cadets who finished everything but never pressed the final button gets reported as
+// having missed their own intake a fortnight after starting.
 export function hasMissedIntake(cadet, now = new Date()) {
   if (!cadet?.intendedStartDate || ['joined', 'withdrawn'].includes(cadet.status)) return false
+  if (joiningSettled(cadet)) return false
   const reviewDate = new Date(cadet.intendedStartDate)
   reviewDate.setDate(reviewDate.getDate() + 14)
   return now >= reviewDate
